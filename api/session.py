@@ -29,7 +29,6 @@ class Session(SessionResponse):
             # Otherwise, update attributes from fetched object
             for key, value in SessionResponse():
                 setattr(self, key, getattr(self._db_obj, key))
-            self.google_id = self._db_obj.google_id
 
         # A couple cases require the id from the database (new or lookup by google_id)
         self.id = self._db_obj.id

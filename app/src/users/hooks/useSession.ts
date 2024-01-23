@@ -31,26 +31,32 @@ const useSession = () => {
   }, []);
 
   const onStart = () => {
-    axiosInstance.post("/start").then((token) => {
-      localStorage.setItem("sessionToken", token.data);
-      axiosInstance.defaults.headers.common = { Authorization: token.data };
+    axiosInstance.post("/start").then((response) => {
+      localStorage.setItem("sessionToken", response.data.token);
+      axiosInstance.defaults.headers.common = {
+        Authorization: response.data.token,
+      };
       start();
     });
   };
 
   const onRefresh = () => {
-    axiosInstance.put("/refresh").then((token) => {
-      localStorage.setItem("sessionToken", token.data);
-      axiosInstance.defaults.headers.common = { Authorization: token.data };
+    axiosInstance.put("/refresh").then((response) => {
+      localStorage.setItem("sessionToken", response.data.token);
+      axiosInstance.defaults.headers.common = {
+        Authorization: response.data.token,
+      };
       start();
     });
   };
 
   const onStop = function () {
-    localStorage.removeItem("sessionToken");
-    axiosInstance.defaults.headers.common = {};
-    queryClient.clear();
-    stop();
+    axiosInstance.delete("/stop").then(() => {
+      localStorage.removeItem("sessionToken");
+      axiosInstance.defaults.headers.common = {};
+      queryClient.clear();
+      stop();
+    });
   };
 
   return { inProgress, isChecking, onStart, onRefresh, onStop };

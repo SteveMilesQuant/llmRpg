@@ -30,8 +30,9 @@ class UserResponse(UserData):
 
 class SessionData(BaseModel):
     '''Session data'''
+    expiration: Optional[datetime] = None
 
 
-class SessionResponse(UserData):
+class SessionResponse(SessionData):
     '''Session response'''
     id: Optional[int] = None

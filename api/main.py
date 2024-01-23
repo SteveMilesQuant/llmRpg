@@ -97,6 +97,19 @@ async def get_authorized_user(request, session, required=True) -> Optional[User]
     return user
 
 
+async def get_session(request, db_session) -> Optional[Session]:
+    token = request.headers.get('Authorization')
+    session_id = auth_token_to_user_id(app, token)
+    if session_id:
+        session = Session(id=session_id)
+        await session.create(db_session)
+        if session.id is None:
+            session = None
+    else:
+        session = None
+    return session
+
+
 @api_router.post("/signin")
 async def signin_post(request: Request, google_response_token: dict):
     '''Given the Google signin response token, returns this API's authentication token.'''
@@ -111,17 +124,17 @@ async def signin_post(request: Request, google_response_token: dict):
     if not user_info_json.get("email_verified"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="User email not available or not verified by Google.")
-    if (user_info_json["sub"] != os.environ.get('ADMIN_USER_GOOGLE_ID')):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="User not authorized for admin privileges.")
     async with app.db_sessionmaker() as db_session:
         user = User(
             google_id=user_info_json["sub"]
         )
         await user.create(db_session)
+        if user.id is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="User not authorized for admin privileges.")
 
         user_token, token_expiration = user_id_to_auth_token(app, user.id)
-        return user_token
+        return {"token": user_token, "expiration": token_expiration}
 
 
 @api_router.post("/start")
@@ -132,7 +145,37 @@ async def session_start_post(request: Request):
 
         session_token, token_expiration = user_id_to_auth_token(
             app, session.id)
-        return session_token
+
+        session.expiration = token_expiration
+        await session.update(db_session)
+
+        return {"token": session_token, "expiration": token_expiration}
+
+
+@api_router.put("/refresh")
+async def session_refresh_put(request: Request):
+    async with app.db_sessionmaker() as db_session:
+        session = await get_session(request, db_session)
+        if session is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Session not found. Start a new one.")
+
+        session_token, token_expiration = user_id_to_auth_token(
+            app, session.id)
+
+        session.expiration = token_expiration
+        await session.update(db_session)
+
+        return {"token": session_token, "expiration": token_expiration}
+
+
+@api_router.delete("/stop")
+async def session_stop_delete(request: Request):
+    async with app.db_sessionmaker() as db_session:
+        session = await get_session(request, db_session)
+        if session is None:
+            return
+        await session.delete(db_session)
 
 
 ###############################################################################

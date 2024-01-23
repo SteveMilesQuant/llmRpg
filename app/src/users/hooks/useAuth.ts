@@ -45,9 +45,11 @@ const useAuth = () => {
       "error" | "error_description" | "error_uri"
     >
   ) => {
-    axiosInstance.post("/signin", codeResponse).then((token) => {
-      localStorage.setItem("authToken", token.data);
-      axiosInstance.defaults.headers.common = { Authorization: token.data };
+    axiosInstance.post("/signin", codeResponse).then((response) => {
+      localStorage.setItem("authToken", response.data.token);
+      axiosInstance.defaults.headers.common = {
+        Authorization: response.data.token,
+      };
       login();
     });
   };

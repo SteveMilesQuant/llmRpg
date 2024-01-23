@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime
 from sqlalchemy import Text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -20,6 +21,7 @@ class SessionDb(Base):
     __tablename__ = 'session'
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    expiration: Mapped[datetime] = mapped_column(nullable=True)
 
 
 async def init_db(user: str, password: str, url: str, port: str, schema_name: str, for_pytest: Optional[bool] = False):

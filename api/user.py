@@ -29,12 +29,9 @@ class User(UserResponse):
                 self._db_obj = result[0]
 
         if self._db_obj is None:
-            # If none found, create new user
-            data = self.dict(include=UserData().dict())
-            data['google_id'] = self.google_id
-            self._db_obj = UserDb(**data)
-            session.add(self._db_obj)
-            await session.commit()
+            # If none found, return
+            self.id = None
+            return
         else:
             # Otherwise, update attributes from fetched object
             for key, value in UserResponse():
