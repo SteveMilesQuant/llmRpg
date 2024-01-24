@@ -1,6 +1,13 @@
 import { useParams } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { StoryTabs, useStory } from "../stories";
+import {
+  CACHE_KEY_STORIES,
+  StoryTabs,
+  useStory,
+  useUpdateStory,
+} from "../stories";
+import { Button } from "@chakra-ui/react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const Story = () => {
   const { id: idStr } = useParams();
@@ -8,12 +15,40 @@ const Story = () => {
 
   const { data: story, error, isLoading } = useStory(id);
 
+  const queryClient = useQueryClient();
+  const updateStory = useUpdateStory({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CACHE_KEY_STORIES });
+      queryClient.invalidateQueries({
+        queryKey: [...CACHE_KEY_STORIES, story?.id.toString()],
+      });
+    },
+  });
+
   if (isLoading || !story) return null;
   if (error) throw error;
 
   return (
     <>
-      <PageHeader hideUnderline={true}>{story?.title}</PageHeader>
+      <PageHeader
+        hideUnderline={true}
+        rightButton={
+          <Button
+            size="md"
+            variant="outline"
+            onClick={() => {
+              updateStory.mutate({
+                ...story,
+                is_published: !story.is_published,
+              });
+            }}
+          >
+            {story.is_published ? "Unpublish" : "Publish"}
+          </Button>
+        }
+      >
+        {story?.title}
+      </PageHeader>
       <StoryTabs story={story} />
     </>
   );

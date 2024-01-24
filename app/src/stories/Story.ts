@@ -1,6 +1,7 @@
 export interface StoryData {
   title: string;
   setting: string;
+  is_published: boolean;
 }
 
 export interface Story extends StoryData {
