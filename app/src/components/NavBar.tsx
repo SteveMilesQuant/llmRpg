@@ -1,31 +1,23 @@
-import { Box, HStack } from "@chakra-ui/react";
+import { Box, HStack, Heading } from "@chakra-ui/react";
 import SessionButton from "./SessionButton";
 
 const NavBar = () => {
   return (
-    <>
-      <Box
-        width="100%"
-        bgGradient="linear(to-b, brand.100, brand.300, brand.200)"
-      >
-        <HStack
-          position="absolute"
-          justifyContent="space-between"
-          width="100%"
-          padding={2}
-        >
-          <Box></Box>
-          <Box padding={1}>
-            <SessionButton />
-          </Box>
-        </HStack>
-        <Box
-          boxSize={{ base: "100px", lg: "300px" }}
-          marginX="auto"
-          paddingY={2}
-        />
+    <HStack
+      justifyContent="space-between"
+      width="100%"
+      bgColor="brand.300"
+      padding={2}
+    >
+      <Box padding={1}>
+        <Heading fontFamily="monospace" fontSize="30px" color="brand.100">
+          stories
+        </Heading>
       </Box>
-    </>
+      <Box padding={1}>
+        <SessionButton />
+      </Box>
+    </HStack>
   );
 };
 

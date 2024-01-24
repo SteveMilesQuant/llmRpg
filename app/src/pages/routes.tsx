@@ -3,12 +3,18 @@ import Layout from "./Layout";
 import ErrorPage from "./ErrorPage";
 import Home from "./Home";
 import PrivateRoutes from "./PrivateRoutes";
-import Admin from "./Admin";
+import Stories from "./Stories";
 import AdminLayout from "./AdminLayout";
+import Story from "./Story";
 
 const router = createBrowserRouter([
   {
     path: "/",
+    errorElement: (
+      <Layout>
+        <ErrorPage />
+      </Layout>
+    ),
     children: [
       {
         index: true,
@@ -17,20 +23,20 @@ const router = createBrowserRouter([
             <Home />
           </Layout>
         ),
-        errorElement: (
-          <Layout>
-            <ErrorPage />
-          </Layout>
-        ),
       },
       {
-        path: "admin",
+        path: "stories",
         element: <AdminLayout />,
         children: [
-          { index: true, element: <Admin /> },
+          { index: true, element: <Stories /> },
           {
             element: <PrivateRoutes />,
-            children: [],
+            children: [
+              {
+                path: ":id",
+                element: <Story />,
+              },
+            ],
           },
         ],
       },

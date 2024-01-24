@@ -36,3 +36,14 @@ class SessionData(BaseModel):
 class SessionResponse(SessionData):
     '''Session response'''
     id: Optional[int] = None
+
+
+class StoryData(BaseModel):
+    '''Story data'''
+    title: Optional[str] = ""
+    setting: Optional[str] = ""
+
+
+class StoryResponse(StoryData):
+    '''Story response'''
+    id: Optional[int] = None

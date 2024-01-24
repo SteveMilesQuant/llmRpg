@@ -1,7 +1,7 @@
 import os
 import aiohttp
 import json
-from typing import Optional
+from typing import Optional, List
 from datetime import timedelta
 from fastapi import FastAPI, APIRouter, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +10,7 @@ from authentication import user_id_to_auth_token, auth_token_to_user_id
 from db import init_db, close_db
 from user import User
 from session import Session
+from story import Story, StoryData, StoryResponse, all_stories
 
 
 class Object(object):
@@ -19,7 +20,7 @@ class Object(object):
 description = """
 API for managing the Level Up Learning business for scheduling summer and year-round
  educational track out camps. Guardians can define their students and enroll those
- students in camps. Instructors can design "programs" (i.e. curriculum) and "levels"
+ students in camps. Instructors can design "stories" (i.e. curriculum) and "levels"
  (i.e. lessons) and see the camps they're currently teaching. Administrators can
  schedule camps, adjust enrollments, and assign instructors to camps.
 """
@@ -176,6 +177,73 @@ async def session_stop_delete(request: Request):
         if session is None:
             return
         await session.delete(db_session)
+
+
+###############################################################################
+# STORIES
+###############################################################################
+
+
+@api_router.get("/stories", response_model=List[StoryResponse])
+async def get_stories(request: Request):
+    '''Get a list of stories. If the current user is an administrator, returns all stories. Otherwise, returns the stories this user has been invited to design.'''
+    async with app.db_sessionmaker() as session:
+        await get_authorized_user(request, session)
+        return await all_stories(session)
+
+
+@api_router.get("/stories/{story_id}", response_model=StoryResponse)
+async def get_story(request: Request, story_id: int):
+    '''Get a single story.'''
+    async with app.db_sessionmaker() as session:
+        await get_authorized_user(request, session)
+        story = Story(id=story_id)
+        await story.create(session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={story_id} does not exist")
+        return story
+
+
+@api_router.put("/stories/{story_id}", response_model=StoryResponse)
+async def put_update_story(request: Request, story_id: int, updated_story: StoryData):
+    '''Update a story.'''
+    async with app.db_sessionmaker() as session:
+        await get_authorized_user(request, session)
+        story = Story(id=story_id)
+        await story.create(session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={story_id} does not exist")
+        story = story.copy(update=updated_story.dict(exclude_unset=True))
+        await story.update(session)
+        return story
+
+
+@api_router.post("/stories", response_model=StoryResponse, status_code=status.HTTP_201_CREATED)
+async def post_new_story(request: Request, new_story_data: StoryData):
+    '''Create a new story.'''
+    async with app.db_sessionmaker() as session:
+        await get_authorized_user(request, session)
+        new_story = Story(**new_story_data.dict())
+        await new_story.create(session)
+        if new_story.id is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Post new story failed")
+        return new_story
+
+
+@api_router.delete("/stories/{story_id}")
+async def delete_story(request: Request, story_id: int):
+    '''Delete a story.'''
+    async with app.db_sessionmaker() as session:
+        await get_authorized_user(request, session)
+        story = Story(id=story_id)
+        await story.create(session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={story_id} does not exist")
+        await story.delete(session)
 
 
 ###############################################################################

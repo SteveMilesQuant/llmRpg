@@ -24,6 +24,14 @@ class SessionDb(Base):
     expiration: Mapped[datetime] = mapped_column(nullable=True)
 
 
+class StoryDb(Base):
+    __tablename__ = 'story'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(Text,)
+    setting: Mapped[str] = mapped_column(Text, nullable=True)
+
+
 async def init_db(user: str, password: str, url: str, port: str, schema_name: str, for_pytest: Optional[bool] = False):
     if for_pytest:
         # Workaround for pytest issues
