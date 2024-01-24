@@ -33,7 +33,7 @@ jobs:
           touch api/.env
           docker-compose build
           docker tag llmrpg_app $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_app
-          docker tag llmrpg_app $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_api
+          docker tag llmrpg_api $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_api
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_app
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_api
 
