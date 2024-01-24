@@ -1,6 +1,7 @@
 import { Tabs, TabList, Tab, TabPanels, TabPanel } from "@chakra-ui/react";
 import { Story } from "../Story";
 import StoryForm from "./StoryForm";
+import { Locations } from "../../locations";
 
 interface Props {
   story: Story;
@@ -18,7 +19,9 @@ const StoryTabs = ({ story }: Props) => {
         <TabPanel>
           <StoryForm story={story} />
         </TabPanel>
-        <TabPanel></TabPanel>
+        <TabPanel>
+          <Locations storyId={story.id} />
+        </TabPanel>
         <TabPanel></TabPanel>
       </TabPanels>
     </Tabs>

@@ -1,6 +1,6 @@
 export interface StoryData {
   title: string;
-  description: string;
+  setting: string;
 }
 
 export interface Story extends StoryData {

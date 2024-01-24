@@ -1,8 +1,8 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
-from sqlalchemy import Text
+from sqlalchemy import Text, ForeignKey
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.pool import NullPool
 
 
@@ -30,6 +30,22 @@ class StoryDb(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(Text,)
     setting: Mapped[str] = mapped_column(Text, nullable=True)
+    is_published: Mapped[bool]
+
+    locations: Mapped[List['LocationDb']] = relationship(
+        back_populates='story', lazy='raise', cascade='all, delete')
+
+
+class LocationDb(Base):
+    __tablename__ = 'location'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    story_id: Mapped[int] = mapped_column(ForeignKey('story.id'))
+    name: Mapped[str] = mapped_column(Text,)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+
+    story: Mapped['StoryDb'] = relationship(
+        back_populates='locations', lazy='raise')
 
 
 async def init_db(user: str, password: str, url: str, port: str, schema_name: str, for_pytest: Optional[bool] = False):

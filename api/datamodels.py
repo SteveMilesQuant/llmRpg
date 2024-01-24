@@ -42,8 +42,21 @@ class StoryData(BaseModel):
     '''Story data'''
     title: Optional[str] = ""
     setting: Optional[str] = ""
+    is_published: Optional[bool] = False
 
 
 class StoryResponse(StoryData):
     '''Story response'''
     id: Optional[int] = None
+
+
+class LocationData(BaseModel):
+    '''Location data'''
+    name: Optional[str] = ""
+    description: Optional[str] = ""
+
+
+class LocationResponse(LocationData):
+    '''Location response'''
+    id: Optional[int] = None
+    story_id: Optional[int] = None

@@ -1,6 +1,6 @@
-export { useStory } from "./hooks/useStories";
 export {
   default as useStories,
+  useStory,
   useDeleteStory,
   useUpdateStory,
 } from "./hooks/useStories";

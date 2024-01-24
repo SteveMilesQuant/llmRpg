@@ -8,9 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from oauthlib.oauth2 import WebApplicationClient
 from authentication import user_id_to_auth_token, auth_token_to_user_id
 from db import init_db, close_db
+from datamodels import StoryData, StoryResponse, LocationData, LocationResponse
 from user import User
 from session import Session
-from story import Story, StoryData, StoryResponse, all_stories
+from story import Story, all_stories
+from location import Location
 
 
 class Object(object):
@@ -18,15 +20,11 @@ class Object(object):
 
 
 description = """
-API for managing the Level Up Learning business for scheduling summer and year-round
- educational track out camps. Guardians can define their students and enroll those
- students in camps. Instructors can design "stories" (i.e. curriculum) and "levels"
- (i.e. lessons) and see the camps they're currently teaching. Administrators can
- schedule camps, adjust enrollments, and assign instructors to camps.
+
 """
 root_path = os.environ.get("API_ROOT_PATH") or ""
 app = FastAPI(
-    title="Level Up Learning",
+    title="Location Up Learning",
     description=description,
     version="0.0.1",
     contact={
@@ -184,19 +182,20 @@ async def session_stop_delete(request: Request):
 ###############################################################################
 
 
+# Public route
 @api_router.get("/stories", response_model=List[StoryResponse])
-async def get_stories(request: Request):
+async def get_stories(request: Request, is_published: Optional[bool] = None):
     '''Get a list of stories. If the current user is an administrator, returns all stories. Otherwise, returns the stories this user has been invited to design.'''
     async with app.db_sessionmaker() as session:
         await get_authorized_user(request, session)
-        return await all_stories(session)
+        return await all_stories(session, is_published)
 
 
+# Public route
 @api_router.get("/stories/{story_id}", response_model=StoryResponse)
 async def get_story(request: Request, story_id: int):
     '''Get a single story.'''
     async with app.db_sessionmaker() as session:
-        await get_authorized_user(request, session)
         story = Story(id=story_id)
         await story.create(session)
         if story.id is None:
@@ -244,6 +243,112 @@ async def delete_story(request: Request, story_id: int):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail=f"Story id={story_id} does not exist")
         await story.delete(session)
+
+
+###############################################################################
+# STORIES -> LOCATIONS
+###############################################################################
+
+
+# Public route
+@api_router.get("/stories/{story_id}/locations", response_model=List[LocationResponse])
+async def get_locations(request: Request, story_id: int):
+    '''Get all locations within a story.'''
+    async with app.db_sessionmaker() as session:
+        story = Story(id=story_id)
+        await story.create(session)
+        location_list = []
+        for db_location in await story.locations(session):
+            location = Location(db_obj=db_location)
+            await location.create(session)
+            location_list.append(location)
+        return location_list
+
+
+# Public route
+@api_router.get("/stories/{story_id}/locations/{location_id}", response_model=LocationResponse)
+async def get_location(request: Request, story_id: int, location_id: int):
+    '''Get a single location within a story.'''
+    async with app.db_sessionmaker() as session:
+        story = Story(id=story_id)
+        await story.create(session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={story_id} does not exist")
+        for db_location in await story.locations(session):
+            if db_location.id == location_id:
+                location = Location(db_obj=db_location)
+                await location.create(session)
+                return location
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Location id={location_id} does not exist for story id={story_id}")
+
+
+@api_router.put("/stories/{story_id}/locations/{location_id}", response_model=LocationResponse)
+async def put_update_location(request: Request, story_id: int, location_id: int, updated_location: LocationData):
+    '''Update a location within a story.'''
+    async with app.db_sessionmaker() as session:
+        await get_authorized_user(request, session)
+        story = Story(id=story_id)
+        await story.create(session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={story_id} does not exist")
+        if story is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=f"User does not have permission for story id={story_id}")
+        for db_location in await story.locations(session):
+            if db_location.id == location_id:
+                location = Location(db_obj=db_location)
+                await location.create(session)
+                location = location.copy(
+                    update=updated_location.dict(exclude_unset=True))
+                await location.update(session)
+                return location
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Location id={location_id} does not exist for story id={story_id}")
+
+
+@api_router.post("/stories/{story_id}/locations", response_model=LocationResponse, status_code=status.HTTP_201_CREATED)
+async def post_new_location(request: Request, story_id: int, new_location_data: LocationData):
+    '''Create a new location within a story.'''
+    async with app.db_sessionmaker() as session:
+        await get_authorized_user(request, session)
+        story = Story(id=story_id)
+        await story.create(session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={story_id} does not exist")
+        if story is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=f"User does not have permission for story id={story_id}")
+        new_location = Location(**new_location_data.dict())
+        new_location.story_id = story_id
+        await new_location.create(session)
+        return new_location
+
+
+@api_router.delete("/stories/{story_id}/locations/{location_id}")
+async def delete_location(request: Request, story_id: int, location_id: int):
+    '''Remove a location from its story and delete it.'''
+    async with app.db_sessionmaker() as session:
+        await get_authorized_user(request, session)
+        story = Story(id=story_id)
+        await story.create(session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={story_id} does not exist")
+        if story is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=f"User does not have permission for story id={story_id}")
+        for db_location in await story.locations(session):
+            if db_location.id == location_id:
+                location = Location(db_obj=db_location)
+                await location.create(session)
+                await location.delete(session)
+                return
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Location id={location_id} does not exist for story id={story_id}")
 
 
 ###############################################################################
