@@ -13,7 +13,7 @@ const AdminNavBar = () => {
       <Box padding={1} marginX={3}>
         <LinkOverlay as={RouterLink} to={"/stories"}>
           <Heading fontFamily="monospace" fontSize="30px" color="brand.100">
-            stories
+            stories (admin)
           </Heading>
         </LinkOverlay>
       </Box>

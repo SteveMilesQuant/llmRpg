@@ -13,7 +13,7 @@ const Stories = () => {
   const { signedIn } = useAuth();
   const { data: stories, error, isLoading } = useStories(!signedIn);
 
-  if (isLoading) return null;
+  if (isLoading || !signedIn) return null;
   if (error) throw error;
 
   return (
@@ -29,7 +29,7 @@ const Stories = () => {
       >
         All stories
       </PageHeader>
-      {signedIn && stories && (
+      {stories && (
         <>
           <StoryGrid stories={stories} />
           <StoryFormModal

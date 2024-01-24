@@ -9,7 +9,7 @@ const NavBar = () => {
       bgColor="brand.300"
       padding={2}
     >
-      <Box padding={1}>
+      <Box padding={1} marginX={3}>
         <Heading fontFamily="monospace" fontSize="30px" color="brand.100">
           stories
         </Heading>
