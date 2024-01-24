@@ -67,9 +67,9 @@ jobs:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         run: |
-          docker stop lul-app
-          docker stop lul-api
-          docker rm lul-app
-          docker rm lul-api
-          docker run -d --name lul-app -p 8080:8080 $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_app
-          docker run -d --env-file ~/lul.env --name lul-api -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_api
+          docker stop llmrpg-app
+          docker stop llmrpg-api
+          docker rm llmrpg-app
+          docker rm llmrpg-api
+          docker run -d --name llmrpg-app -p 8080:8080 $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_app
+          docker run -d --env-file ~/llmrpg.env --name llmrpg-api -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_api
