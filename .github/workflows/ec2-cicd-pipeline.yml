@@ -32,10 +32,10 @@ jobs:
           printf "VITE_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID\nVITE_API_URL=/api\n" > app/.env
           touch api/.env
           docker-compose build
-          docker tag stories_app $ECR_REGISTRY/$ECR_REPOSITORY:stories_app
-          docker tag stories_api $ECR_REGISTRY/$ECR_REPOSITORY:stories_api
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:stories_app
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:stories_api
+          docker tag llmrpg_app $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_app
+          docker tag llmrpg_app $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_api
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_app
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_api
 
   CD:
     runs-on: [self-hosted]
@@ -59,8 +59,8 @@ jobs:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         run: |
-          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:stories_app
-          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:stories_api
+          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_app
+          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_api
 
       - name: Restart docker container from new image
         env:
@@ -71,5 +71,5 @@ jobs:
           docker stop lul-api
           docker rm lul-app
           docker rm lul-api
-          docker run -d --name lul-app -p 8080:8080 $ECR_REGISTRY/$ECR_REPOSITORY:stories_app
-          docker run -d --env-file ~/lul.env --name lul-api -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:stories_api
+          docker run -d --name lul-app -p 8080:8080 $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_app
+          docker run -d --env-file ~/lul.env --name lul-api -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_api
