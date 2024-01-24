@@ -1,4 +1,4 @@
-name: Level Up Learning React/FastAPI CI/CD for AWS EC2 with Docker
+name: "Stories" React/FastAPI CI/CD for AWS EC2 with Docker
 
 on:
   push:

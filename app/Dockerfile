@@ -12,9 +12,9 @@ RUN  touch /var/run/nginx.pid && \
      chown -R nginx:nginx /var/cache/nginx /var/run/nginx.pid
 USER nginx
 
-WORKDIR /lul-app
+WORKDIR /stories-app
 COPY ./nginx.conf /etc/nginx/nginx.conf
-COPY --from=build-stage /lul-app/dist ./
+COPY --from=build-stage /stories-app/dist ./
 
 EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
