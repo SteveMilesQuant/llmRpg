@@ -60,3 +60,15 @@ class LocationResponse(LocationData):
     '''Location response'''
     id: Optional[int] = None
     story_id: Optional[int] = None
+
+
+class CharacterData(BaseModel):
+    '''Character data'''
+    name: Optional[str] = ""
+    description: Optional[str] = ""
+
+
+class CharacterResponse(CharacterData):
+    '''Character response'''
+    id: Optional[int] = None
+    story_id: Optional[int] = None

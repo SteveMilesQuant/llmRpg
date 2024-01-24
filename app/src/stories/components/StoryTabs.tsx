@@ -2,6 +2,7 @@ import { Tabs, TabList, Tab, TabPanels, TabPanel } from "@chakra-ui/react";
 import { Story } from "../Story";
 import StoryForm from "./StoryForm";
 import { Locations } from "../../locations";
+import { Characters } from "../../characters";
 
 interface Props {
   story: Story;
@@ -22,7 +23,9 @@ const StoryTabs = ({ story }: Props) => {
         <TabPanel>
           <Locations storyId={story.id} />
         </TabPanel>
-        <TabPanel></TabPanel>
+        <TabPanel>
+          <Characters storyId={story.id} />
+        </TabPanel>
       </TabPanels>
     </Tabs>
   );

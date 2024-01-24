@@ -34,6 +34,8 @@ class StoryDb(Base):
 
     locations: Mapped[List['LocationDb']] = relationship(
         back_populates='story', lazy='raise', cascade='all, delete')
+    characters: Mapped[List['CharacterDb']] = relationship(
+        back_populates='story', lazy='raise', cascade='all, delete')
 
 
 class LocationDb(Base):
@@ -46,6 +48,18 @@ class LocationDb(Base):
 
     story: Mapped['StoryDb'] = relationship(
         back_populates='locations', lazy='raise')
+
+
+class CharacterDb(Base):
+    __tablename__ = 'character'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    story_id: Mapped[int] = mapped_column(ForeignKey('story.id'))
+    name: Mapped[str] = mapped_column(Text,)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+
+    story: Mapped['StoryDb'] = relationship(
+        back_populates='characters', lazy='raise')
 
 
 async def init_db(user: str, password: str, url: str, port: str, schema_name: str, for_pytest: Optional[bool] = False):

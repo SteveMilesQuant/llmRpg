@@ -9,9 +9,9 @@ import {
   ModalHeader,
   ModalOverlay,
 } from "@chakra-ui/react";
-import useLocationForm from "../hooks/useLocationForm";
+import useCharacterForm from "../hooks/useCharacterForm";
 import SubmitButton from "../../components/SubmitButton";
-import LocationFormBody from "./LocationFormBody";
+import CharacterFormBody from "./CharacterFormBody";
 
 interface Props {
   title: string;
@@ -20,14 +20,14 @@ interface Props {
   storyId: number;
 }
 
-const LocationFormModal = ({ title, isOpen, onClose, storyId }: Props) => {
-  const locationForm = useLocationForm(storyId);
+const CharacterFormModal = ({ title, isOpen, onClose, storyId }: Props) => {
+  const characterForm = useCharacterForm(storyId);
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={() => {
-        locationForm.handleClose();
+        characterForm.handleClose();
         onClose();
       }}
       size="3xl"
@@ -40,14 +40,14 @@ const LocationFormModal = ({ title, isOpen, onClose, storyId }: Props) => {
         </ModalHeader>
         <ModalCloseButton />
         <ModalBody>
-          <LocationFormBody {...locationForm} />
+          <CharacterFormBody {...characterForm} />
         </ModalBody>
         <ModalFooter>
           <SubmitButton
             onClick={() => {
-              locationForm.handleSubmit();
-              if (locationForm.isValid) {
-                locationForm.handleClose();
+              characterForm.handleSubmit();
+              if (characterForm.isValid) {
+                characterForm.handleClose();
                 onClose();
               }
             }}
@@ -60,4 +60,4 @@ const LocationFormModal = ({ title, isOpen, onClose, storyId }: Props) => {
   );
 };
 
-export default LocationFormModal;
+export default CharacterFormModal;

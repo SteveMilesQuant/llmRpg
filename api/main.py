@@ -8,11 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from oauthlib.oauth2 import WebApplicationClient
 from authentication import user_id_to_auth_token, auth_token_to_user_id
 from db import init_db, close_db
-from datamodels import StoryData, StoryResponse, LocationData, LocationResponse
+from datamodels import StoryData, StoryResponse, LocationData, LocationResponse, CharacterData, CharacterResponse
 from user import User
 from session import Session
 from story import Story, all_stories
 from location import Location
+from character import Character
 
 
 class Object(object):
@@ -349,6 +350,112 @@ async def delete_location(request: Request, story_id: int, location_id: int):
                 return
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Location id={location_id} does not exist for story id={story_id}")
+
+
+###############################################################################
+# STORIES -> CHARACTERS
+###############################################################################
+
+
+# Public route
+@api_router.get("/stories/{story_id}/characters", response_model=List[CharacterResponse])
+async def get_characters(request: Request, story_id: int):
+    '''Get all characters within a story.'''
+    async with app.db_sessionmaker() as session:
+        story = Story(id=story_id)
+        await story.create(session)
+        character_list = []
+        for db_character in await story.characters(session):
+            character = Character(db_obj=db_character)
+            await character.create(session)
+            character_list.append(character)
+        return character_list
+
+
+# Public route
+@api_router.get("/stories/{story_id}/characters/{character_id}", response_model=CharacterResponse)
+async def get_character(request: Request, story_id: int, character_id: int):
+    '''Get a single character within a story.'''
+    async with app.db_sessionmaker() as session:
+        story = Story(id=story_id)
+        await story.create(session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={story_id} does not exist")
+        for db_character in await story.characters(session):
+            if db_character.id == character_id:
+                character = Character(db_obj=db_character)
+                await character.create(session)
+                return character
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Character id={character_id} does not exist for story id={story_id}")
+
+
+@api_router.put("/stories/{story_id}/characters/{character_id}", response_model=CharacterResponse)
+async def put_update_character(request: Request, story_id: int, character_id: int, updated_character: CharacterData):
+    '''Update a character within a story.'''
+    async with app.db_sessionmaker() as session:
+        await get_authorized_user(request, session)
+        story = Story(id=story_id)
+        await story.create(session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={story_id} does not exist")
+        if story is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=f"User does not have permission for story id={story_id}")
+        for db_character in await story.characters(session):
+            if db_character.id == character_id:
+                character = Character(db_obj=db_character)
+                await character.create(session)
+                character = character.copy(
+                    update=updated_character.dict(exclude_unset=True))
+                await character.update(session)
+                return character
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Character id={character_id} does not exist for story id={story_id}")
+
+
+@api_router.post("/stories/{story_id}/characters", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED)
+async def post_new_character(request: Request, story_id: int, new_character_data: CharacterData):
+    '''Create a new character within a story.'''
+    async with app.db_sessionmaker() as session:
+        await get_authorized_user(request, session)
+        story = Story(id=story_id)
+        await story.create(session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={story_id} does not exist")
+        if story is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=f"User does not have permission for story id={story_id}")
+        new_character = Character(**new_character_data.dict())
+        new_character.story_id = story_id
+        await new_character.create(session)
+        return new_character
+
+
+@api_router.delete("/stories/{story_id}/characters/{character_id}")
+async def delete_character(request: Request, story_id: int, character_id: int):
+    '''Remove a character from its story and delete it.'''
+    async with app.db_sessionmaker() as session:
+        await get_authorized_user(request, session)
+        story = Story(id=story_id)
+        await story.create(session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={story_id} does not exist")
+        if story is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=f"User does not have permission for story id={story_id}")
+        for db_character in await story.characters(session):
+            if db_character.id == character_id:
+                character = Character(db_obj=db_character)
+                await character.create(session)
+                await character.delete(session)
+                return
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Character id={character_id} does not exist for story id={story_id}")
 
 
 ###############################################################################
