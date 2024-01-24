@@ -1,0 +1,75 @@
+name: Level Up Learning React/FastAPI CI/CD for AWS EC2 with Docker
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  CI:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Login to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+        run: aws ecr get-login-password | docker login -u AWS --password-stdin https://$ECR_REGISTRY
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        run: |
+          printf "VITE_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID\nVITE_API_URL=/api\n" > app/.env
+          touch api/.env
+          docker-compose build
+          docker tag stories_app $ECR_REGISTRY/$ECR_REPOSITORY:stories_app
+          docker tag stories_api $ECR_REGISTRY/$ECR_REPOSITORY:stories_api
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:stories_app
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:stories_api
+
+  CD:
+    runs-on: [self-hosted]
+    needs: [CI]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Login to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+        run: aws ecr get-login-password | docker login -u AWS --password-stdin https://$ECR_REGISTRY
+
+      - name: Pull docker image
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        run: |
+          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:stories_app
+          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:stories_api
+
+      - name: Restart docker container from new image
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        run: |
+          docker stop lul-app
+          docker stop lul-api
+          docker rm lul-app
+          docker rm lul-api
+          docker run -d --name lul-app -p 8080:8080 $ECR_REGISTRY/$ECR_REPOSITORY:stories_app
+          docker run -d --env-file ~/lul.env --name lul-api -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:stories_api

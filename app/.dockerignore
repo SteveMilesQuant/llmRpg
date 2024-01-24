@@ -1,0 +1,6 @@
+*
+!/*.json
+!/index.html
+!/src
+!/nginx.conf
+!/.env
