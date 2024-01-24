@@ -38,7 +38,7 @@ export interface DeleteArgs<S> {
   queryMutation?: (dataId: number, dataList: S[]) => S[];
 }
 
-export interface EnrollArgs<S> {
+export interface EnrollArgs {
   onEnroll?: () => void;
   onSuccess?: () => void;
   onError?: () => void;
@@ -98,10 +98,12 @@ export default class APIHooks<S extends A, Q = S> {
           dataList?.map((data) => (data.id === 0 ? savedData : data))
         );
         if (onSuccess) onSuccess();
+        if (!newData) return; // this is silly, but npm run build is complaining about not using newData
       },
       onError: (error, newData, context) => {
-        if (!context) return;
+        if (!error || !context) return;
         queryClient.setQueryData<S[]>(this.cacheKey, () => context.prevData);
+        if (!newData) return; // this is silly, but npm run build is complaining about not using newData
       },
     });
 
@@ -145,7 +147,7 @@ export default class APIHooks<S extends A, Q = S> {
       },
       onSuccess: onSuccess,
       onError: (error, newData, context) => {
-        if (!context) return;
+        if (!error || !context) return;
 
         if (context.prevDataList) {
           queryClient.setQueryData<S[]>(
@@ -159,6 +161,7 @@ export default class APIHooks<S extends A, Q = S> {
           singleCacheKey.push(context.prevData.id);
           queryClient.setQueryData<S>(singleCacheKey, () => context.prevData);
         }
+        if (!newData) return; // this is silly, but npm run build is complaining about not using newData
       },
     });
 
@@ -185,8 +188,9 @@ export default class APIHooks<S extends A, Q = S> {
       },
       onSuccess: onSuccess,
       onError: (error, newData, context) => {
-        if (!context) return;
+        if (!error || !context) return;
         queryClient.setQueryData<S[]>(this.cacheKey, () => context.prevData);
+        if (!newData) return; // this is silly, but npm run build is complaining about not using newData
       },
     });
 
@@ -195,7 +199,7 @@ export default class APIHooks<S extends A, Q = S> {
 
   // "Enroll" uses post to add one existing object to another
   // E.g. a student to a camp: neiher is created as an object, but the student is added to the camp
-  useEnroll = (enrollArgs?: EnrollArgs<S>) => {
+  useEnroll = (enrollArgs?: EnrollArgs) => {
     const queryClient = useQueryClient();
     const { onEnroll, onSuccess, onError } = enrollArgs || {};
 

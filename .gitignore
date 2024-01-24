@@ -3,3 +3,4 @@
 /api/.env
 /api/virt
 /api/__pycache__
+/app/dist
