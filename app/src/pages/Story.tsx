@@ -36,6 +36,7 @@ const Story = () => {
           <Button
             size="md"
             variant="outline"
+            color="inherit"
             onClick={() => {
               updateStory.mutate({
                 ...story,

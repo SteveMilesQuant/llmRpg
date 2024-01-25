@@ -20,7 +20,7 @@ const CharactersMenu = ({
 
   return (
     <Menu autoSelect={true}>
-      <MenuButton as={Button} rightIcon={<FaChevronDown />}>
+      <MenuButton as={Button} rightIcon={<FaChevronDown />} color="inherit">
         {selectedCharacter?.name || "(none)"}
       </MenuButton>
       <MenuList>
@@ -28,6 +28,7 @@ const CharactersMenu = ({
           <MenuItem
             key={character.id}
             onClick={() => setSelectedCharacter(character)}
+            color="inherit"
           >
             {character.name}
           </MenuItem>

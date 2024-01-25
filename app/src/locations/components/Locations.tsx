@@ -33,7 +33,14 @@ const Locations = ({ storyId }: Props) => {
             selectedLocation={selectedLocation}
             setSelectedLocation={setSelectedLocation}
           />
-          <Button onClick={onOpen}>Add location</Button>
+          <Button
+            onClick={onOpen}
+            bgColor={undefined}
+            color="inherit"
+            _hover={undefined}
+          >
+            Add location
+          </Button>
         </HStack>
         <Box width="100%">
           {locations
@@ -52,6 +59,9 @@ const Locations = ({ storyId }: Props) => {
         isOpen={isOpen}
         onClose={onClose}
         storyId={storyId}
+        onSuccess={(newData: Location) => {
+          setSelectedLocation(newData);
+        }}
       ></LocationFormModal>
     </>
   );

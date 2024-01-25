@@ -12,16 +12,24 @@ import {
 import useCharacterForm from "../hooks/useCharacterForm";
 import SubmitButton from "../../components/SubmitButton";
 import CharacterFormBody from "./CharacterFormBody";
+import { Character } from "..";
 
 interface Props {
   title: string;
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: (newData: Character) => void;
   storyId: number;
 }
 
-const CharacterFormModal = ({ title, isOpen, onClose, storyId }: Props) => {
-  const characterForm = useCharacterForm(storyId);
+const CharacterFormModal = ({
+  title,
+  isOpen,
+  onClose,
+  onSuccess,
+  storyId,
+}: Props) => {
+  const characterForm = useCharacterForm(storyId, undefined, onSuccess);
 
   return (
     <Modal

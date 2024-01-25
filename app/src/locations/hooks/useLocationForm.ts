@@ -12,7 +12,11 @@ export const locationSchema = object({
 
 export type FormData = Output<typeof locationSchema>;
 
-const useLocationForm = (storyId?: number, location?: Location) => {
+const useLocationForm = (
+  storyId?: number,
+  location?: Location,
+  onSuccess?: (newData: Location) => void
+) => {
   const {
     register,
     control,
@@ -28,7 +32,7 @@ const useLocationForm = (storyId?: number, location?: Location) => {
     }, [location]),
   });
 
-  const addLocation = useAddLocation(storyId);
+  const addLocation = useAddLocation(storyId, { onSuccess });
   const updateLocation = useUpdateLocation(storyId);
 
   const handleClose = () => {

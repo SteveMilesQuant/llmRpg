@@ -12,7 +12,11 @@ export const characterSchema = object({
 
 export type FormData = Output<typeof characterSchema>;
 
-const useCharacterForm = (storyId?: number, character?: Character) => {
+const useCharacterForm = (
+  storyId?: number,
+  character?: Character,
+  onSuccess?: (newData: Character) => void
+) => {
   const {
     register,
     control,
@@ -28,7 +32,7 @@ const useCharacterForm = (storyId?: number, character?: Character) => {
     }, [character]),
   });
 
-  const addCharacter = useAddCharacter(storyId);
+  const addCharacter = useAddCharacter(storyId, { onSuccess });
   const updateCharacter = useUpdateCharacter(storyId);
 
   const handleClose = () => {

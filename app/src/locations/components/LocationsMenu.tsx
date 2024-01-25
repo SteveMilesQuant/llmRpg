@@ -20,7 +20,7 @@ const LocationsMenu = ({
 
   return (
     <Menu autoSelect={true}>
-      <MenuButton as={Button} rightIcon={<FaChevronDown />}>
+      <MenuButton as={Button} rightIcon={<FaChevronDown />} color="inherit">
         {selectedLocation?.name || "(none)"}
       </MenuButton>
       <MenuList>
@@ -28,6 +28,7 @@ const LocationsMenu = ({
           <MenuItem
             key={location.id}
             onClick={() => setSelectedLocation(location)}
+            color="inherit"
           >
             {location.name}
           </MenuItem>

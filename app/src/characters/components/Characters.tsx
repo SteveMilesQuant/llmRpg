@@ -33,7 +33,14 @@ const Characters = ({ storyId }: Props) => {
             selectedCharacter={selectedCharacter}
             setSelectedCharacter={setSelectedCharacter}
           />
-          <Button onClick={onOpen}>Add character</Button>
+          <Button
+            onClick={onOpen}
+            bgColor={undefined}
+            color="inherit"
+            _hover={undefined}
+          >
+            Add character
+          </Button>
         </HStack>
         <Box width="100%">
           {characters
@@ -52,6 +59,9 @@ const Characters = ({ storyId }: Props) => {
         isOpen={isOpen}
         onClose={onClose}
         storyId={storyId}
+        onSuccess={(newData: Character) => {
+          setSelectedCharacter(newData);
+        }}
       ></CharacterFormModal>
     </>
   );

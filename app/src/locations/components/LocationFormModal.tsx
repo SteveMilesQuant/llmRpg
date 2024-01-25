@@ -12,16 +12,24 @@ import {
 import useLocationForm from "../hooks/useLocationForm";
 import SubmitButton from "../../components/SubmitButton";
 import LocationFormBody from "./LocationFormBody";
+import { Location } from "..";
 
 interface Props {
   title: string;
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: (newData: Location) => void;
   storyId: number;
 }
 
-const LocationFormModal = ({ title, isOpen, onClose, storyId }: Props) => {
-  const locationForm = useLocationForm(storyId);
+const LocationFormModal = ({
+  title,
+  isOpen,
+  onClose,
+  onSuccess,
+  storyId,
+}: Props) => {
+  const locationForm = useLocationForm(storyId, undefined, onSuccess);
 
   return (
     <Modal

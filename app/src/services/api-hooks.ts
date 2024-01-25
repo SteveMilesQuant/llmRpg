@@ -21,7 +21,7 @@ interface A {
 
 export interface AddArgs<S, Q = S> {
   onAdd?: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (newData: S) => void;
   queryMutation?: (newData: Q, dataList: S[]) => S[];
 }
 
@@ -93,12 +93,12 @@ export default class APIHooks<S extends A, Q = S> {
         if (onAdd) onAdd();
         return { prevData };
       },
-      onSuccess: (savedData, newData) => {
+      onSuccess: (newData, submittedData) => {
         queryClient.setQueryData<S[]>(this.cacheKey, (dataList) =>
-          dataList?.map((data) => (data.id === 0 ? savedData : data))
+          dataList?.map((data) => (data.id === 0 ? newData : data))
         );
-        if (onSuccess) onSuccess();
-        if (!newData) return; // this is silly, but npm run build is complaining about not using newData
+        if (onSuccess) onSuccess(newData);
+        if (!submittedData) return; // this is silly, but npm run build is complaining about not using newData
       },
       onError: (error, newData, context) => {
         if (!error || !context) return;
