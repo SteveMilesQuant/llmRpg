@@ -21,7 +21,12 @@ const Stories = () => {
       <PageHeader
         rightButton={
           signedIn && (
-            <Button size="md" variant="outline" onClick={newOnOpen}>
+            <Button
+              size="md"
+              variant="outline"
+              color="inherit"
+              onClick={newOnOpen}
+            >
               Add story
             </Button>
           )
