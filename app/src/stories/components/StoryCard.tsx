@@ -1,4 +1,4 @@
-import { Divider, HStack, Heading, LinkOverlay } from "@chakra-ui/react";
+import { Divider, HStack, Heading, LinkOverlay, Text } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 import { Story } from "../Story";
 import DeleteButton from "../../components/DeleteButton";
@@ -24,7 +24,7 @@ const StoryCard = ({ story, onDelete }: Props) => {
       </HStack>
 
       <Divider orientation="horizontal" marginTop={2} />
-      <HStack marginTop={2} justifyContent="space-between"></HStack>
+      <Text marginTop={2}>{story.blurb}</Text>
     </CardContainer>
   );
 };

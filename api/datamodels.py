@@ -42,6 +42,7 @@ class StoryData(BaseModel):
     '''Story data'''
     title: Optional[str] = ""
     setting: Optional[str] = ""
+    blurb: Optional[str] = ""
     is_published: Optional[bool] = False
 
 

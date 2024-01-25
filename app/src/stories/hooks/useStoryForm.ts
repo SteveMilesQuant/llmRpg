@@ -8,6 +8,7 @@ import { useAddStory, useUpdateStory } from "./useStories";
 export const storySchema = object({
   title: string([minLength(1, "Title is required.")]),
   setting: string(),
+  blurb: string(),
 });
 
 export type FormData = Output<typeof storySchema>;

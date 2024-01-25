@@ -1,5 +1,6 @@
 export interface StoryData {
   title: string;
+  blurb: string;
   setting: string;
   is_published: boolean;
 }

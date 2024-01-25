@@ -30,6 +30,7 @@ class StoryDb(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(Text,)
     setting: Mapped[str] = mapped_column(Text, nullable=True)
+    blurb: Mapped[str] = mapped_column(Text, nullable=True)
     is_published: Mapped[bool]
 
     locations: Mapped[List['LocationDb']] = relationship(

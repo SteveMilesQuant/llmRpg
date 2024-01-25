@@ -186,9 +186,10 @@ async def session_stop_delete(request: Request):
 # Public route
 @api_router.get("/stories", response_model=List[StoryResponse])
 async def get_stories(request: Request, is_published: Optional[bool] = None):
-    '''Get a list of stories. If the current user is an administrator, returns all stories. Otherwise, returns the stories this user has been invited to design.'''
+    '''Get a list of stories. If the current user is an administrator, returns all stories.'''
     async with app.db_sessionmaker() as session:
-        await get_authorized_user(request, session)
+        if not is_published:
+            await get_authorized_user(request, session)
         return await all_stories(session, is_published)
 
 

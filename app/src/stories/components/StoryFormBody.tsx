@@ -28,6 +28,21 @@ const StoryFormBody = ({ register, errors, isReadOnly }: Props) => {
         </InputError>
       </FormControl>
       <FormControl>
+        <FormLabel>Blurb</FormLabel>
+        <InputError
+          label={errors.blurb?.message}
+          isOpen={errors.blurb ? true : false}
+        >
+          <Input
+            {...register("blurb")}
+            as={Textarea}
+            size="xl"
+            height="7rem"
+            isReadOnly={isReadOnly}
+          />
+        </InputError>
+      </FormControl>
+      <FormControl>
         <FormLabel>Setting</FormLabel>
         <InputError
           label={errors.setting?.message}
