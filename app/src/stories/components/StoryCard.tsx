@@ -13,7 +13,7 @@ const StoryCard = ({ story, onDelete }: Props) => {
   return (
     <CardContainer>
       <HStack justifyContent="space-between">
-        <LinkOverlay as={RouterLink} to={"/stories/" + story.id}>
+        <LinkOverlay as={RouterLink} to={"/design/" + story.id}>
           <HStack alignItems="end">
             <Heading fontSize="2xl">{story.title}</Heading>
           </HStack>

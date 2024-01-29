@@ -3,7 +3,7 @@ import { useAuth } from "../users";
 
 const PrivateRoutes = () => {
   const { signedIn, isChecking } = useAuth();
-  if (!signedIn && !isChecking) return <Navigate to="/" />;
+  if (!signedIn && !isChecking) return <Navigate to="/design" />;
   return <Outlet />;
 };
 

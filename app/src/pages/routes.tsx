@@ -4,29 +4,37 @@ import ErrorPage from "./ErrorPage";
 import Home from "./Home";
 import PrivateRoutes from "./PrivateRoutes";
 import Stories from "./Stories";
-import AdminLayout from "./AdminLayout";
 import Story from "./Story";
+import PageContext, { PageContextType } from "./pageContext";
 
 const router = createBrowserRouter([
   {
     path: "/",
     errorElement: (
-      <Layout>
-        <ErrorPage />
-      </Layout>
+      <PageContext.Provider value={PageContextType.public}>
+        <Layout>
+          <ErrorPage />
+        </Layout>
+      </PageContext.Provider>
     ),
     children: [
       {
         index: true,
         element: (
-          <Layout>
-            <Home />
-          </Layout>
+          <PageContext.Provider value={PageContextType.public}>
+            <Layout>
+              <Home />
+            </Layout>
+          </PageContext.Provider>
         ),
       },
       {
-        path: "stories",
-        element: <AdminLayout />,
+        path: "design",
+        element: (
+          <PageContext.Provider value={PageContextType.design}>
+            <Layout />
+          </PageContext.Provider>
+        ),
         children: [
           { index: true, element: <Stories /> },
           {
