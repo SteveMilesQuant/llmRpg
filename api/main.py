@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from oauthlib.oauth2 import WebApplicationClient
 from authentication import user_id_to_auth_token, auth_token_to_user_id
 from db import init_db, close_db
-from datamodels import StoryData, StoryResponse, LocationData, LocationResponse, CharacterData, CharacterResponse
+from datamodels import StoryData, StoryResponse, LocationData, LocationResponse, CharacterData, CharacterResponse, QueryData
 from user import User
 from session import Session
 from story import Story, all_stories
@@ -458,6 +458,25 @@ async def delete_character(request: Request, story_id: int, character_id: int):
                 return
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Character id={character_id} does not exist for story id={story_id}")
+
+
+###############################################################################
+# QUERY
+###############################################################################
+
+
+# Public route
+@api_router.post("/query", response_model=str)
+async def get_characters(request: Request, query_data: QueryData):
+    '''Submit a query to the narrator for .'''
+    async with app.db_sessionmaker() as db_session:
+        session = await get_session(request, db_session)
+        if session is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Session not found. Start a new one.")
+        story = Story(id=session.story_id)
+        await story.create(db_session)
+        return story.blurb
 
 
 ###############################################################################

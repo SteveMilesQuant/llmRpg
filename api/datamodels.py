@@ -1,7 +1,6 @@
 from pydantic import BaseModel
-from typing import Optional, Tuple, List
+from typing import Optional
 from datetime import date, datetime, time
-from enum import Enum
 
 
 class FastApiDate(date):
@@ -74,3 +73,8 @@ class CharacterResponse(CharacterData):
     '''Character response'''
     id: Optional[int] = None
     story_id: Optional[int] = None
+
+
+class QueryData(BaseModel):
+    '''Story query data'''
+    user_response: str
