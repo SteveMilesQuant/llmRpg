@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { axiosInstance } from "../../services/api-client";
+import { axiosInstance } from "../services/api-client";
 import { create } from "zustand";
 
 interface SessionStore {

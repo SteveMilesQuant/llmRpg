@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { useSession } from "../users";
+import useSession from "../hooks/useSession";
 
 const Story = () => {
   const { id: idStr } = useParams();
