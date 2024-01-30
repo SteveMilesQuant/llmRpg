@@ -137,8 +137,8 @@ async def signin_post(request: Request, google_response_token: dict):
         return {"token": user_token, "expiration": token_expiration}
 
 
-@api_router.post("/start")
-async def session_start_post(request: Request):
+@api_router.post("/start/{story_id}")
+async def session_start_post(request: Request, story_id: int):
     async with app.db_sessionmaker() as db_session:
         session = Session()
         await session.create(db_session)
@@ -147,6 +147,7 @@ async def session_start_post(request: Request):
             app, session.id)
 
         session.expiration = token_expiration
+        session.story_id = story_id
         await session.update(db_session)
 
         return {"token": session_token, "expiration": token_expiration}

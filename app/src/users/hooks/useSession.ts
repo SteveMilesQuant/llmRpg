@@ -1,52 +1,56 @@
 import { useEffect, useState } from "react";
 import { axiosInstance } from "../../services/api-client";
 import { create } from "zustand";
-import { useQueryClient } from "@tanstack/react-query";
 
 interface SessionStore {
   inProgress: boolean;
-  start: () => void;
+  expiration?: Date;
+  start: (expiration: Date) => void;
   stop: () => void;
 }
 
 const useSessionStore = create<SessionStore>((set) => ({
   inProgress: false,
-  start: () => set(() => ({ inProgress: true })),
+  expiration: undefined,
+  start: (expiration: Date) => set(() => ({ inProgress: true, expiration })),
   stop: () => set(() => ({ inProgress: false })),
 }));
 
 const useSession = () => {
-  const { inProgress, start, stop } = useSessionStore();
+  const { inProgress, expiration, start, stop } = useSessionStore();
   const [isChecking, setIsChecking] = useState(true);
-  const queryClient = useQueryClient();
 
   // Check to see if we're already signed in
   useEffect(() => {
     const sessionToken = localStorage.getItem("sessionToken");
-    if (sessionToken) {
+    const sessionExpiration = localStorage.getItem("sessionExpiration");
+    if (sessionToken && sessionExpiration) {
       axiosInstance.defaults.headers.common = { Authorization: sessionToken };
-      start();
+      start(new Date(sessionExpiration + "Z"));
     }
     setIsChecking(false);
   }, []);
 
-  const onStart = () => {
-    axiosInstance.post("/start").then((response) => {
+  const onStart = (storyId: number) => {
+    axiosInstance.post("/start/" + storyId).then((response) => {
       localStorage.setItem("sessionToken", response.data.token);
+      localStorage.setItem("sessionExpiration", response.data.expiration);
       axiosInstance.defaults.headers.common = {
         Authorization: response.data.token,
       };
-      start();
+
+      start(new Date(response.data.expiration + "Z"));
     });
   };
 
   const onRefresh = () => {
     axiosInstance.put("/refresh").then((response) => {
       localStorage.setItem("sessionToken", response.data.token);
+      localStorage.setItem("sessionExpiration", response.data.expiration);
       axiosInstance.defaults.headers.common = {
         Authorization: response.data.token,
       };
-      start();
+      start(new Date(response.data.expiration + "Z"));
     });
   };
 
@@ -54,12 +58,11 @@ const useSession = () => {
     axiosInstance.delete("/stop").then(() => {
       localStorage.removeItem("sessionToken");
       axiosInstance.defaults.headers.common = {};
-      queryClient.clear();
       stop();
     });
   };
 
-  return { inProgress, isChecking, onStart, onRefresh, onStop };
+  return { inProgress, expiration, isChecking, onStart, onRefresh, onStop };
 };
 
 export default useSession;

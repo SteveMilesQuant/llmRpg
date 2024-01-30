@@ -31,6 +31,7 @@ class UserResponse(UserData):
 class SessionData(BaseModel):
     '''Session data'''
     expiration: Optional[datetime] = None
+    story_id: Optional[int] = None
 
 
 class SessionResponse(SessionData):

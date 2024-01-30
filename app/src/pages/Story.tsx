@@ -8,8 +8,8 @@ const Story = () => {
   const { onStart } = useSession();
 
   useEffect(() => {
-    if (id) onStart();
-  }, [!!id]);
+    if (id) onStart(id);
+  }, []);
 
   return <div>Story</div>;
 };

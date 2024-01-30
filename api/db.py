@@ -22,6 +22,8 @@ class SessionDb(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     expiration: Mapped[datetime] = mapped_column(nullable=True)
+    story_id: Mapped[int] = mapped_column(
+        ForeignKey('story.id'), nullable=True)
 
 
 class StoryDb(Base):
