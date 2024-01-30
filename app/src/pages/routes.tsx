@@ -4,8 +4,9 @@ import ErrorPage from "./ErrorPage";
 import Home from "./Home";
 import PrivateRoutes from "./PrivateRoutes";
 import Stories from "./Stories";
-import Story from "./Story";
 import PageContext, { PageContextType } from "./pageContext";
+import Design from "./Design";
+import Story from "./Story";
 
 const router = createBrowserRouter([
   {
@@ -19,14 +20,18 @@ const router = createBrowserRouter([
     ),
     children: [
       {
-        index: true,
         element: (
           <PageContext.Provider value={PageContextType.public}>
-            <Layout>
-              <Home />
-            </Layout>
+            <Layout />
           </PageContext.Provider>
         ),
+        children: [
+          { index: true, element: <Home /> },
+          {
+            path: "stories/:id",
+            element: <Story />,
+          },
+        ],
       },
       {
         path: "design",
@@ -42,7 +47,7 @@ const router = createBrowserRouter([
             children: [
               {
                 path: ":id",
-                element: <Story />,
+                element: <Design />,
               },
             ],
           },

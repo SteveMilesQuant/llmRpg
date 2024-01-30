@@ -1,6 +1,6 @@
 import { Button, useDisclosure } from "@chakra-ui/react";
 import PageHeader from "../components/PageHeader";
-import { StoryFormModal, StoryGrid, useStories } from "../stories";
+import { StoryFormModal, StoryGrid, StoryQuery, useStories } from "../stories";
 import { useAuth } from "../users";
 import { useContext } from "react";
 import PageContext, { PageContextType } from "./pageContext";
@@ -13,14 +13,14 @@ const Stories = () => {
   } = useDisclosure();
   const pageContext = useContext(PageContext);
   const { signedIn } = useAuth();
+  const storyQuery: StoryQuery =
+    pageContext === PageContextType.public ? { is_published: true } : {};
+  const storiesDisabled = pageContext !== PageContextType.public && !signedIn;
   const {
     data: stories,
     error,
     isLoading,
-  } = useStories(
-    pageContext === PageContextType.public ? { is_published: true } : {},
-    pageContext !== PageContextType.public && !signedIn
-  );
+  } = useStories(storyQuery, storiesDisabled);
 
   if (isLoading) return null;
   if (error) throw error;

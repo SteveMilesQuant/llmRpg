@@ -1,22 +1,13 @@
 import { Box, Button, HStack, Text } from "@chakra-ui/react";
 import { useSession } from "../users";
+import { useNavigate } from "react-router-dom";
 
 const SessionButton = () => {
-  const { inProgress, onStart, onStop, onRefresh } = useSession();
+  const { inProgress, onStop, onRefresh } = useSession();
+  const navigate = useNavigate();
 
   return (
     <Box>
-      {!inProgress && (
-        <Button
-          variant="outline"
-          bgColor="white"
-          textColor="brand.100"
-          size="sm"
-          onClick={() => onStart()}
-        >
-          Start
-        </Button>
-      )}
       {inProgress && (
         <HStack>
           <Button
@@ -33,7 +24,10 @@ const SessionButton = () => {
             bgColor="white"
             textColor="brand.100"
             size="sm"
-            onClick={() => onStop()}
+            onClick={() => {
+              onStop();
+              navigate("/");
+            }}
           >
             <Text>Stop</Text>
           </Button>
