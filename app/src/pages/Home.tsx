@@ -1,7 +1,7 @@
-import PageHeader from "../components/PageHeader";
+import Stories from "./Stories";
 
 const Home = () => {
-  return <PageHeader>Home page</PageHeader>;
+  return <Stories />;
 };
 
 export default Home;

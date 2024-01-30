@@ -5,7 +5,6 @@ import { CACHE_KEY_STORIES, Story, StoryData } from "../Story";
 
 export interface StoryQuery {
   is_published?: boolean;
-  instructor_id?: number;
 }
 
 const storyHooks = new APIHooks<Story, StoryData>(
@@ -14,8 +13,11 @@ const storyHooks = new APIHooks<Story, StoryData>(
   ms("5m")
 );
 
-const useStories = (disabled: boolean) => {
-  return storyHooks.useDataList(undefined, disabled);
+const useStories = (storyQuery: StoryQuery, disabled: boolean) => {
+  return storyHooks.useDataList(
+    Object.keys(storyQuery).length ? { params: { ...storyQuery } } : undefined,
+    disabled
+  );
 };
 
 export default useStories;

@@ -2,6 +2,8 @@ import { Button, useDisclosure } from "@chakra-ui/react";
 import PageHeader from "../components/PageHeader";
 import { StoryFormModal, StoryGrid, useStories } from "../stories";
 import { useAuth } from "../users";
+import { useContext } from "react";
+import PageContext, { PageContextType } from "./pageContext";
 
 const Stories = () => {
   const {
@@ -9,18 +11,25 @@ const Stories = () => {
     onOpen: newOnOpen,
     onClose: newOnClose,
   } = useDisclosure();
-
+  const pageContext = useContext(PageContext);
   const { signedIn } = useAuth();
-  const { data: stories, error, isLoading } = useStories(!signedIn);
+  const {
+    data: stories,
+    error,
+    isLoading,
+  } = useStories(
+    pageContext === PageContextType.public ? { is_published: true } : {},
+    pageContext !== PageContextType.public && !signedIn
+  );
 
-  if (isLoading || !signedIn) return null;
+  if (isLoading) return null;
   if (error) throw error;
 
   return (
     <>
-      <PageHeader
-        rightButton={
-          signedIn && (
+      {pageContext === PageContextType.design && signedIn && (
+        <PageHeader
+          rightButton={
             <Button
               size="md"
               variant="outline"
@@ -29,19 +38,21 @@ const Stories = () => {
             >
               Add story
             </Button>
-          )
-        }
-      >
-        All stories
-      </PageHeader>
+          }
+        >
+          All stories
+        </PageHeader>
+      )}
       {stories && (
         <>
           <StoryGrid stories={stories} />
-          <StoryFormModal
-            title="Add Story"
-            isOpen={newIsOpen}
-            onClose={newOnClose}
-          />
+          {pageContext === PageContextType.design && (
+            <StoryFormModal
+              title="Add Story"
+              isOpen={newIsOpen}
+              onClose={newOnClose}
+            />
+          )}
         </>
       )}
     </>

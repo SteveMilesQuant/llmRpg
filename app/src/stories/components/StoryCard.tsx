@@ -3,6 +3,8 @@ import { Link as RouterLink } from "react-router-dom";
 import { Story } from "../Story";
 import DeleteButton from "../../components/DeleteButton";
 import CardContainer from "../../components/CardContainer";
+import { useContext } from "react";
+import PageContext, { PageContextType } from "../../pages/pageContext";
 
 interface Props {
   story: Story;
@@ -10,15 +12,21 @@ interface Props {
 }
 
 const StoryCard = ({ story, onDelete }: Props) => {
+  const pageContext = useContext(PageContext);
+  const link =
+    pageContext === PageContextType.public
+      ? "/stories/" + story.id
+      : "/design/" + story.id;
+
   return (
     <CardContainer>
       <HStack justifyContent="space-between">
-        <LinkOverlay as={RouterLink} to={"/design/" + story.id}>
+        <LinkOverlay as={RouterLink} to={link}>
           <HStack alignItems="end">
             <Heading fontSize="2xl">{story.title}</Heading>
           </HStack>
         </LinkOverlay>
-        {onDelete && (
+        {pageContext === PageContextType.design && onDelete && (
           <DeleteButton onConfirm={onDelete}>{story.title}</DeleteButton>
         )}
       </HStack>
