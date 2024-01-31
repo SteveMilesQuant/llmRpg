@@ -6,6 +6,7 @@ from datetime import timedelta
 from fastapi import FastAPI, APIRouter, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from oauthlib.oauth2 import WebApplicationClient
+from langchain_openai import OpenAI
 from authentication import user_id_to_auth_token, auth_token_to_user_id
 from db import init_db, close_db
 from datamodels import StoryData, StoryResponse, LocationData, LocationResponse, CharacterData, CharacterResponse, QueryData
@@ -14,6 +15,7 @@ from session import Session
 from story import Story, all_stories
 from location import Location
 from character import Character
+from narrator import Narrator
 
 
 class Object(object):
@@ -68,6 +70,8 @@ async def startup():
         schema_name=os.environ.get('DB_SCHEMA_NAME'),
         for_pytest=(os.environ.get('PYTEST_RUN') == '1')
     )
+
+    app.llm = OpenAI()
 
 
 @app.on_event('shutdown')
@@ -476,7 +480,9 @@ async def get_characters(request: Request, query_data: QueryData):
                                 detail=f"Session not found. Start a new one.")
         story = Story(id=session.story_id)
         await story.create(db_session)
-        return story.blurb
+        narrator = Narrator(app.llm, story.setting)
+        query_input = query_data.user_response
+        return narrator.query(query_input)
 
 
 ###############################################################################
