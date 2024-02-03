@@ -2,7 +2,7 @@ from pydantic import PrivateAttr
 from typing import Optional, Any, List
 from langchain.chains import ConversationChain
 from langchain.prompts.prompt import PromptTemplate
-from langchain.memory import ConversationBufferMemory
+from langchain.memory import ConversationSummaryMemory
 from langchain_openai import OpenAI
 from datamodels import CharacterResponse, LocationData
 from db import CharacterDb
@@ -19,7 +19,7 @@ Response:
 
 
 class Character(CharacterResponse):
-    _memory: Optional[ConversationBufferMemory] = PrivateAttr()
+    _memory: Optional[ConversationSummaryMemory] = PrivateAttr()
     _conversation: Optional[ConversationChain] = PrivateAttr()
     _db_obj: Optional[CharacterDb] = PrivateAttr()
 
@@ -27,7 +27,7 @@ class Character(CharacterResponse):
         super().__init__(**data)
         self._db_obj = db_obj
         if llm:
-            self._memory = ConversationBufferMemory()
+            self._memory = ConversationSummaryMemory(llm=llm)
 
             setting_desc = 'SETTING:\n----------\n' + story_setting + '\n----------\n\n'
             locations_desc = 'LOCATIONS:\n----------\n'
