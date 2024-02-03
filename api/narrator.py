@@ -1,63 +1,137 @@
+import os
+from ast import literal_eval
+from typing import List
+from langchain.chains import ConversationChain
 from langchain.prompts.prompt import PromptTemplate
-from langchain.agents import AgentExecutor, create_react_agent
 from langchain.memory import ConversationBufferMemory
+from langchain_openai import OpenAI
+from datamodels import SAMPLE_CHARACTERS, SAMPLE_LOCATIONS, SAMPLE_STORY, LocationData, CharacterData
+from character import Character
 
-NARRATOR_PREFIX = '''
-You are the narrator of an interactive story. The input you receive is from a Player playing as the main character of this story. Your responses should describe what the Player sees and hears, and should use descriptive or creative language. The setting of this story is described below, but you are welcome to embellish as you see fit.
+EXPOSITION_PREFIX = '''You are the narrator of an interactive story. The input you receive is from a Player playing as the main character of this story. Your response should describe what the Player sees and hears, and should use descriptive or creative language. The setting, locations, and characters in this story are described below.'''
 
-If this is the first interaction you have with the Player, then you should set the scene for them by describing the general setting of the land they're in.
+OFFER_PREFIX = '''You are a helper to the narrator of an interactive story. Your response should be four choices that you offer the Player. The choices can be things the player can say to the character they're interacting with, which should be encapsulated in double quotes, and/or things the player can do in that moment, which would not be in double quotes. Offer the Player choices that are appropriate to the situation and character they are interacting with.  The setting, locations, and characters in this story are described below.
 
-'''
+You MUST format your response as a Python array of strings, using three single quotes before and after each choice, to encapsulate each of the four choices you offer the Player. For example,
+[
+   \'''Hug them.\''',
+   \'''"Tell them you're here to help."\''',
+   \'''Stay silent and look awkardly to the side.\''',
+   \'''"I don't think I can help you, sorry."\''',
+]'''
 
-NARRATOR_SUFFIX = '''
-
-TOOLS:
-------
-
-You have access to the following tools, but should never need to use a tool:
-
-{tools}
-
-To use a tool, please use the following format:
-
-```
-Thought: Do I need to use a tool? Yes
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-```
-
-When you have a response to say to the Player, or if you do not need to use a tool, you MUST use the format:
-
-```
-Thought: Do I need to use a tool? No
-Final Answer: [your response here]
-```
-
-Begin!
+COMMMON_SUFFIX = '''
 
 Previous conversation history:
-{chat_history}
+{history}
 
 New input: {input}
-{agent_scratchpad}
+
+Response:
 '''
 
 
 class Narrator:
-    def __init__(self, llm, story_setting: str):
+    def __init__(self, llm, story_setting: str, locations: List[LocationData], characters: List[CharacterData]):
         self.llm = llm
-        self.prompt = PromptTemplate(input_variables=[
-                                     'agent_scratchpad', 'chat_history', 'input', 'tool_names', 'tools'], template=NARRATOR_PREFIX + 'Setting:' + story_setting + NARRATOR_SUFFIX)
-        self.agent = create_react_agent(llm, [], self.prompt)
-        self.memory = ConversationBufferMemory(memory_key="chat_history")
-        self.agent_executor = AgentExecutor(
-            agent=self.agent, tools=[], memory=self.memory, verbose=False)
 
-    def query(self, query_input: str) -> str:
-        response = self.agent_executor.invoke(
-            {
-                "input": query_input,
-            }
+        setting_desc = 'SETTING:\n----------\n' + story_setting + '\n----------\n\n'
+        locations_desc = 'LOCATIONS:\n----------\n'
+        for location in locations:
+            locations_desc = locations_desc + location.name + \
+                ': ' + location.description + '\n\n'
+        locations_desc = locations_desc + '\n----------\n\n'
+
+        characters_desc = 'CHARACTERS:\n----------\n'
+        for character in characters:
+            characters_desc = characters_desc + character.name + \
+                ': ' + character.description + '\n\n'
+        characters_desc = characters_desc + '\n----------\n\n'
+
+        self.memory = ConversationBufferMemory()
+
+        exposition_template = EXPOSITION_PREFIX + setting_desc + \
+            locations_desc + characters_desc + COMMMON_SUFFIX
+        exposition_prompt = PromptTemplate(
+            input_variables=['history', 'input'],
+            template=exposition_template
         )
-        return response['output']
+        self.exposition = ConversationChain(
+            llm=llm,
+            prompt=exposition_prompt,
+            memory=self.memory
+        )
+
+        offer_template = OFFER_PREFIX + setting_desc + \
+            locations_desc + characters_desc + COMMMON_SUFFIX
+        offer_prompt = PromptTemplate(
+            input_variables=['history', 'input'],
+            template=offer_template
+        )
+        self.offer = ConversationChain(
+            llm=llm,
+            prompt=offer_prompt,
+            memory=self.memory
+        )
+
+    def embark(self, player_name: str, location_name: str, character_name: str):
+        response = self.exposition.predict(
+            input=f'My name is {player_name}. I am just starting this story as a traveler from outside the realm and I know nothing about this land. I have arrived in {location_name} and plan to initiate a conversation with {character_name}. Set the scene in three short paragraphs. In the first paragraph, describe the general setting of this story. In the second paragraph, describe the particular location I am in. In the third paragraph, describe the character I plan to talk to.')
+        choices = literal_eval(self.offer.predict(input="Offer me choices."))
+        return {"exposition": response, "choices": choices}
+
+    def interact(self, character: Character, interaction_desc: str):
+        character_response = character.interact(interaction_desc)
+        response = self.exposition.predict(
+            input=f'The following interaction just happened. Please describe it to me. Weave the character\'s response into your description, quoting their response in double quotes. \n\nFrom me to {character.name}:{interaction_desc}\n\nFrom {character.name} to me:{character_response}')
+        choices = literal_eval(self.offer.predict(input="Offer me choices."))
+        return {"exposition": response, "choices": choices}
+
+    def travel(self, previous_location_name: str, previous_character: Character, new_location_name: str, new_character_name: str):
+        goodbye = self.exposition.predict(
+            input=f'Formulate a response for me to leave my conversation with {previous_character.name}')
+        goodbye_response = previous_character.interact(goodbye)
+        response = self.exposition.predict(
+            input=f'The following interaction just happened. Please describe it to me. Weave the {previous_character.name}\'s response into your description, quoting their response in double quotes. \n\nFrom me to {previous_character.name}:{goodbye}\n\nFrom {previous_character.name} to me:{goodbye_response}\n\n My action: I traveled along the road from {previous_location_name} to {new_location_name}. I\'m preparing to interact with {new_character_name}, whom you should describe to me.')
+        choices = literal_eval(self.offer.predict(input="Offer me choices."))
+        return {"exposition": response, "choices": choices}
+
+
+if __name__ == "__main__":
+    llm = OpenAI(
+        temperature=1, openai_api_key=os.environ.get('OPENAPI_API_KEY'), max_tokens=1024)
+    story = SAMPLE_STORY
+    locations = SAMPLE_LOCATIONS
+    characters = SAMPLE_CHARACTERS
+    narrator = Narrator(llm=llm, story_setting=story.setting,
+                        locations=locations, characters=characters)
+    first_char_raw = characters[0]
+    first_character = Character(
+        **first_char_raw.model_dump(), llm=llm, story_setting=story.setting, locations=locations)
+
+    second_char_raw = characters[1]
+    second_character = Character(
+        **second_char_raw.model_dump(), llm=llm, story_setting=story.setting, locations=locations)
+
+    player_name = 'Steve'
+
+    response = narrator.embark(
+        player_name, locations[0].name, characters[0].name)
+    print(response['exposition'])
+    print(response['choices'])
+    print('-----------')
+
+    choice = response['choices'][0]
+    print(f"My choice: {choice}")
+    print('-----------')
+
+    response = narrator.interact(first_character, choice)
+    print(response['exposition'])
+    print(response['choices'])
+    print('-----------')
+
+#    response = narrator.travel(
+#        locations[0].name, first_character, locations[1].name, second_character.name)
+#    print(response['exposition'])
+#    print(response['choices'])
+#    print('-----------')

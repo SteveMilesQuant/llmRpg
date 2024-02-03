@@ -1,15 +1,52 @@
 from pydantic import PrivateAttr
-from typing import Optional, Any
-from datamodels import CharacterResponse
+from typing import Optional, Any, List
+from langchain.chains import ConversationChain
+from langchain.prompts.prompt import PromptTemplate
+from langchain.memory import ConversationBufferMemory
+from langchain_openai import OpenAI
+from datamodels import CharacterResponse, LocationData
 from db import CharacterDb
+
+COMMMON_SUFFIX = '''
+
+Previous conversation history:
+{history}
+
+New input: {input}
+
+Response:
+'''
 
 
 class Character(CharacterResponse):
+    _memory: Optional[ConversationBufferMemory] = PrivateAttr()
+    _conversation: Optional[ConversationChain] = PrivateAttr()
     _db_obj: Optional[CharacterDb] = PrivateAttr()
 
-    def __init__(self, db_obj: Optional[CharacterDb] = None, **data):
+    def __init__(self, llm: Optional[OpenAI] = None, db_obj: Optional[CharacterDb] = None, story_setting: Optional[str] = None, locations: Optional[List[LocationData]] = None, **data):
         super().__init__(**data)
         self._db_obj = db_obj
+        if llm:
+            self._memory = ConversationBufferMemory()
+
+            setting_desc = 'SETTING:\n----------\n' + story_setting + '\n----------\n\n'
+            locations_desc = 'LOCATIONS:\n----------\n'
+            for location in locations:
+                locations_desc = locations_desc + location.name + \
+                    ': ' + location.description + '\n\n'
+            locations_desc = locations_desc + '\n----------\n\n'
+
+            character_template = self.description + '\n\n' + setting_desc + \
+                locations_desc + COMMMON_SUFFIX
+            character_prompt = PromptTemplate(
+                input_variables=['history', 'input'],
+                template=character_template
+            )
+            self._conversation = ConversationChain(
+                llm=llm,
+                prompt=character_prompt,
+                memory=self._memory
+            )
 
     async def create(self, session: Optional[Any]):
         if self._db_obj is None and self.id is not None:
@@ -39,3 +76,7 @@ class Character(CharacterResponse):
     async def delete(self, session: Any):
         await session.delete(self._db_obj)
         await session.commit()
+
+    def interact(self, interaction_desc: str) -> str:
+        response = self._conversation.predict(input=interaction_desc)
+        return response

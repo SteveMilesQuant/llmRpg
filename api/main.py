@@ -71,7 +71,8 @@ async def startup():
         for_pytest=(os.environ.get('PYTEST_RUN') == '1')
     )
 
-    app.llm = OpenAI()
+    app.llm = OpenAI(
+        temperature=1, openai_api_key=os.environ.get('OPENAPI_API_KEY'))
 
 
 @app.on_event('shutdown')
@@ -480,9 +481,13 @@ async def get_characters(request: Request, query_data: QueryData):
                                 detail=f"Session not found. Start a new one.")
         story = Story(id=session.story_id)
         await story.create(db_session)
-        narrator = Narrator(app.llm, story.setting)
+        locations = await story.locations(db_session)
+        characters = await story.characters(db_session)
+        narrator = Narrator(app.llm, story.setting, locations, characters)
         query_input = query_data.user_response
-        return narrator.query(query_input)
+        narrator_response = narrator.query(query_input)
+        print(narrator_response)
+        return "placeholder"
 
 
 ###############################################################################
