@@ -9,17 +9,12 @@ from oauthlib.oauth2 import WebApplicationClient
 from langchain_openai import OpenAI
 from authentication import user_id_to_auth_token, auth_token_to_user_id
 from db import init_db, close_db
-from datamodels import StoryData, StoryResponse, LocationData, LocationResponse, CharacterData, CharacterResponse, QueryData
+from datamodels import Object, StoryData, StoryResponse, LocationData, LocationResponse, CharacterData, CharacterResponse, QueryData
 from user import User
 from session import Session
 from story import Story, all_stories
 from location import Location
 from character import Character
-from narrator import Narrator
-
-
-class Object(object):
-    pass
 
 
 description = """
@@ -80,6 +75,11 @@ async def shutdown():
     await close_db(app.db_engine)
 
 
+###############################################################################
+# USER MANAGEMENT (DESIGN ONLY)
+###############################################################################
+
+
 async def get_google_provider_cfg() -> dict:
     ret_json = {}
     async with aiohttp.ClientSession() as session:
@@ -100,19 +100,6 @@ async def get_authorized_user(request, session, required=True) -> Optional[User]
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail=f"Auth: User not logged in.")
     return user
-
-
-async def get_session(request, db_session) -> Optional[Session]:
-    token = request.headers.get('Authorization')
-    session_id = auth_token_to_user_id(app, token)
-    if session_id:
-        session = Session(id=session_id)
-        await session.create(db_session)
-        if session.id is None:
-            session = None
-    else:
-        session = None
-    return session
 
 
 @api_router.post("/signin")
@@ -142,6 +129,24 @@ async def signin_post(request: Request, google_response_token: dict):
         return {"token": user_token, "expiration": token_expiration}
 
 
+###############################################################################
+# SESSION MANAGMENT
+###############################################################################
+
+
+async def get_session(request, db_session) -> Optional[Session]:
+    token = request.headers.get('Authorization')
+    session_id = auth_token_to_user_id(app, token)
+    if session_id:
+        session = Session(id=session_id)
+        await session.create(db_session)
+        if session.id is None:
+            session = None
+    else:
+        session = None
+    return session
+
+
 @api_router.post("/start/{story_id}")
 async def session_start_post(request: Request, story_id: int):
     async with app.db_sessionmaker() as db_session:
@@ -151,8 +156,15 @@ async def session_start_post(request: Request, story_id: int):
         session_token, token_expiration = user_id_to_auth_token(
             app, session.id)
 
+        story = Story(id=story_id)
+        await story.create(db_session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story with id={story_id} not found.")
+
         session.expiration = token_expiration
-        session.story_id = story_id
+        session.story_id = story.id
+        session.currenct_character_id = story.starting_character_id
         await session.update(db_session)
 
         return {"token": session_token, "expiration": token_expiration}
@@ -466,28 +478,8 @@ async def delete_character(request: Request, story_id: int, character_id: int):
 
 
 ###############################################################################
-# QUERY
+# STORY SIMULATION
 ###############################################################################
-
-
-# Public route
-@api_router.post("/query", response_model=str)
-async def get_characters(request: Request, query_data: QueryData):
-    '''Submit a query to the narrator for .'''
-    async with app.db_sessionmaker() as db_session:
-        session = await get_session(request, db_session)
-        if session is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Session not found. Start a new one.")
-        story = Story(id=session.story_id)
-        await story.create(db_session)
-        locations = await story.locations(db_session)
-        characters = await story.characters(db_session)
-        narrator = Narrator(app.llm, story.setting, locations, characters)
-        query_input = query_data.user_response
-        narrator_response = narrator.query(query_input)
-        print(narrator_response)
-        return "placeholder"
 
 
 ###############################################################################

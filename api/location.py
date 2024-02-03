@@ -31,6 +31,8 @@ class Location(LocationResponse):
             for key, value in LocationResponse():
                 setattr(self, key, getattr(self._db_obj, key))
 
+        await session.refresh(self._db_obj, ['starting_character'])
+
     async def update(self, session: Any):
         for key, value in LocationResponse():
             setattr(self._db_obj, key, getattr(self, key))

@@ -6,6 +6,7 @@ from langchain.memory import ConversationSummaryMemory
 from langchain_openai import OpenAI
 from datamodels import CharacterResponse, LocationData
 from db import CharacterDb
+from location import Location
 
 COMMMON_SUFFIX = '''
 
@@ -23,30 +24,9 @@ class Character(CharacterResponse):
     _conversation: Optional[ConversationChain] = PrivateAttr()
     _db_obj: Optional[CharacterDb] = PrivateAttr()
 
-    def __init__(self, llm: Optional[OpenAI] = None, db_obj: Optional[CharacterDb] = None, story_setting: Optional[str] = None, locations: Optional[List[LocationData]] = None, **data):
+    def __init__(self, db_obj: Optional[CharacterDb] = None, **data):
         super().__init__(**data)
         self._db_obj = db_obj
-        if llm:
-            self._memory = ConversationSummaryMemory(llm=llm)
-
-            setting_desc = 'SETTING:\n----------\n' + story_setting + '\n----------\n\n'
-            locations_desc = 'LOCATIONS:\n----------\n'
-            for location in locations:
-                locations_desc = locations_desc + location.name + \
-                    ': ' + location.description + '\n\n'
-            locations_desc = locations_desc + '\n----------\n\n'
-
-            character_template = self.description + '\n\n' + setting_desc + \
-                locations_desc + COMMMON_SUFFIX
-            character_prompt = PromptTemplate(
-                input_variables=['history', 'input'],
-                template=character_template
-            )
-            self._conversation = ConversationChain(
-                llm=llm,
-                prompt=character_prompt,
-                memory=self._memory
-            )
 
     async def create(self, session: Optional[Any]):
         if self._db_obj is None and self.id is not None:
@@ -67,6 +47,29 @@ class Character(CharacterResponse):
             # Otherwise, update attributes from fetched object
             for key, value in CharacterResponse():
                 setattr(self, key, getattr(self._db_obj, key))
+
+        await session.refresh(self._db_obj, ['location'])
+
+    def green_room(self, llm: Optional[OpenAI] = None):
+        self._memory = ConversationSummaryMemory(llm=llm)
+        location = self._db_obj.location
+        story = self._db_obj.story
+
+        setting_desc = 'SETTING:\n----------\n' + story.setting + '\n----------\n\n'
+        location_desc = f'{location.name}:\n----------\n' + \
+            location.description + '\n----------\n\n'
+
+        character_template = f'Your name is {self.name}. You live in {location.name}. ' + self.description + '\n\n' + setting_desc + \
+            location_desc + COMMMON_SUFFIX
+        character_prompt = PromptTemplate(
+            input_variables=['history', 'input'],
+            template=character_template
+        )
+        self._conversation = ConversationChain(
+            llm=llm,
+            prompt=character_prompt,
+            memory=self._memory
+        )
 
     async def update(self, session: Any):
         for key, value in CharacterResponse():

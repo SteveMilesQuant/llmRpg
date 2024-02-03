@@ -24,6 +24,8 @@ class SessionDb(Base):
     expiration: Mapped[datetime] = mapped_column(nullable=True)
     story_id: Mapped[int] = mapped_column(
         ForeignKey('story.id'), nullable=True)
+    current_character_id: Mapped[int] = mapped_column(
+        ForeignKey('character.id'), nullable=True)
 
 
 class StoryDb(Base):
@@ -34,7 +36,10 @@ class StoryDb(Base):
     setting: Mapped[str] = mapped_column(Text, nullable=True)
     blurb: Mapped[str] = mapped_column(Text, nullable=True)
     is_published: Mapped[bool]
+    starting_location_id: Mapped[int] = mapped_column(
+        ForeignKey('location.id'), nullable=True)
 
+    starting_location: Mapped['LocationDb'] = relationship(lazy='raise')
     locations: Mapped[List['LocationDb']] = relationship(
         back_populates='story', lazy='raise', cascade='all, delete')
     characters: Mapped[List['CharacterDb']] = relationship(
@@ -48,7 +53,10 @@ class LocationDb(Base):
     story_id: Mapped[int] = mapped_column(ForeignKey('story.id'))
     name: Mapped[str] = mapped_column(Text,)
     description: Mapped[str] = mapped_column(Text, nullable=True)
+    starting_character_id: Mapped[int] = mapped_column(
+        ForeignKey('character.id'), nullable=True)
 
+    starting_character: Mapped['CharacterDb'] = relationship(lazy='raise')
     story: Mapped['StoryDb'] = relationship(
         back_populates='locations', lazy='raise')
 
@@ -58,9 +66,11 @@ class CharacterDb(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     story_id: Mapped[int] = mapped_column(ForeignKey('story.id'))
+    location_id: Mapped[int] = mapped_column(ForeignKey('location.id'))
     name: Mapped[str] = mapped_column(Text,)
     description: Mapped[str] = mapped_column(Text, nullable=True)
 
+    location: Mapped['LocationDb'] = relationship(lazy='raise')
     story: Mapped['StoryDb'] = relationship(
         back_populates='characters', lazy='raise')
 

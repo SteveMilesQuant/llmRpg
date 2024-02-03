@@ -32,6 +32,8 @@ class Story(StoryResponse):
             for key, value in StoryResponse():
                 setattr(self, key, getattr(self._db_obj, key))
 
+        await session.refresh(self._db_obj, ['starting_location'])
+
     async def update(self, session: Any):
         for key, value in StoryData():
             setattr(self._db_obj, key, getattr(self, key))
