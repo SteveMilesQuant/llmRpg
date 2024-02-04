@@ -67,7 +67,7 @@ async def startup():
     )
 
     app.llm = OpenAI(
-        temperature=1, openai_api_key=os.environ.get('OPENAPI_API_KEY'))
+        temperature=1, openai_api_key=os.environ.get('OPENAPI_API_KEY'), max_tokens=1024)
 
 
 @app.on_event('shutdown')

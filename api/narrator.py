@@ -17,12 +17,7 @@ DIALOG_PREFIX = '''You are a helper to the narrator of an interactive story. You
 
 OFFER_PREFIX = '''You are a helper to the narrator of an interactive story. Your response should be four choices that you offer the Player. The choices can be things the player can say to the character they're interacting with, which should be encapsulated in double quotes, and/or things the player can do in that moment, which would not be in double quotes. Offer the Player choices that are appropriate to the situation and character they are interacting with.
 
-You MUST format your response as a Python array of strings, using three single quotes before and after each choice, to encapsulate each of the four choices you offer the Player. For example,
-[
-   \'''First choice\''',
-   \'''Second choice with "dialog in double quotes"\''',
-   etc.
-]'''
+You MUST format your response as a Python array of strings.'''
 
 COMMMON_SUFFIX = '''
 
@@ -58,8 +53,7 @@ class Narrator:
         )
         self.dialoguer = ConversationChain(
             llm=llm,
-            prompt=dialog_prompt,
-            memory=self.memory
+            prompt=dialog_prompt
         )
 
         offer_template = OFFER_PREFIX + COMMMON_SUFFIX
@@ -69,18 +63,23 @@ class Narrator:
         )
         self.offerer = ConversationChain(
             llm=llm,
-            prompt=offer_prompt,
-            memory=self.memory
+            prompt=offer_prompt
         )
 
     def offer(self, whatfor: str):
-        choices_str = self.offerer.predict(
-            input=f"Offer me choices for {whatfor}.")
+        choices_str = self.offerer.invoke({
+            "input": f"Offer me choices for {whatfor}.",
+            "history": self.memory.buffer
+        })
+        choices_str = choices_str['response']
         try:
             choices = literal_eval(choices_str)
         except:
-            choices_str = self.offerer.predict(
-                input="Your response was not formatted correctly. Please reformat.")
+            choices_str = self.offerer.invoke({
+                "input": f"Your response was not formatted correctly. Please reformat. Your last response:\n{choices_str}",
+                "history": ""
+            })
+            choices_str = choices_str['response']
             choices = literal_eval(choices_str)
         return choices
 
@@ -108,8 +107,11 @@ class Narrator:
         previous_location = previous_character._db_obj.location
         new_character = new_location._db_obj.starting_character
 
-        goodbye = self.dialoguer.predict(
-            input=f'Formulate a response for me to leave my conversation with {previous_character.name}')
+        goodbye = self.dialoguer.invoke({
+            "input": f'Formulate a response for me to leave my conversation with {previous_character.name}',
+            "history": self.memory.buffer
+        })
+        goodbye = goodbye['response']
         goodbye_response = previous_character.interact(goodbye)
         goodbye_expo = self.expositioner.predict(
             input=f'The following interaction just occurred. Please describe it to me. Quote {previous_character.name}\'s response into your description. \n\nI say to {previous_character.name}: {goodbye}\n\n{previous_character.name}\'s response to me: {goodbye_response}')
