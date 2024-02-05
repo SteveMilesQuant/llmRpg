@@ -138,13 +138,13 @@ class Character(CharacterResponse):
         await session.delete(self._db_obj)
         await session.commit()
 
-    def interact(self, interaction_desc: str) -> str:
-        response = self._conversation.invoke({'input': interaction_desc})
+    async def interact(self, interaction_desc: str) -> str:
+        response = await self._conversation.ainvoke({'input': interaction_desc})
         character_response = response['response']
         self._last_interaction = f"\nFrom the Player to {self.name}: {interaction_desc}\n\n From {self.name} to the Player: {character_response}"
         return character_response
 
-    def offer(self, story_summary: str) -> List[str]:
+    async def offer(self, story_summary: str) -> List[str]:
         if (self._last_interaction) is None:
             return []
 
@@ -157,7 +157,7 @@ class Character(CharacterResponse):
             story_summary=story_summary
         )
 
-        response = self._offerer.invoke({
+        response = await self._offerer.ainvoke({
             'input': f'Give me choices for replying to my last interaction with {self.name}, which is as follows:\n' + self._last_interaction,
             'history': history_formatted
         })
@@ -166,7 +166,7 @@ class Character(CharacterResponse):
         try:
             choices = literal_eval(offer_response)
         except:
-            response = self._offerer.invoke({
+            response = await self._offerer.ainvoke({
                 'input': f'Your last response was not formatted correctly. Please reformat. Your last response was:\n{offer_response}',
                 'history': history_formatted
             })

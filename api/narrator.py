@@ -1,4 +1,5 @@
 import os
+import asyncio
 from typing import List
 from langchain.chains import ConversationChain
 from langchain.prompts.prompt import PromptTemplate
@@ -41,21 +42,21 @@ class Narrator:
             memory=self.memory
         )
 
-    def embark(self, player_name: str, story: Story):
+    async def embark(self, player_name: str, story: Story):
         location = story._db_obj.starting_location
         character = location._db_obj.starting_character
 
-        response = self.expositioner.invoke({
+        response = await self.expositioner.ainvoke({
             "input": f'My name is {player_name}. I am just starting this story as a traveler from outside the realm and I know nothing about this land. Summarize the following setting to me.\n\nSETTING: {story.setting}'
         })
         land_expo = response['response']
 
-        response = self.expositioner.invoke({
+        response = await self.expositioner.ainvoke({
             "input": f'I arrive at {location.name}. Summarize that location to me according to the following description.\n\n\{location.name}: {location.description}'
         })
         location_expo = response['response']
 
-        response = self.expositioner.invoke({
+        response = await self.expositioner.ainvoke({
             "input": f'I prepare to interact with {character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{character.name}: {character.public_description}'
         })
         character_expo = response['response']
@@ -67,31 +68,31 @@ class Narrator:
 
         return {"exposition": land_expo + '\n\n' + location_expo + '\n\n' + character_expo, "choices": choices}
 
-    def interact(self, character: Character, interaction_desc: str):
-        character_response = character.interact(interaction_desc)
-        response = self.expositioner.invoke({
+    async def interact(self, character: Character, interaction_desc: str):
+        character_response = await character.interact(interaction_desc)
+        response = await self.expositioner.ainvoke({
             "input": f'The following interaction just occurred. Please describe it to me. Quote {character.name}\'s response into your description. \n\nI said to {character.name}: {interaction_desc}\n\n{character.name}\'s response to me: {character_response}'
         })
-        choices = character.offer(self.memory.buffer)
+        choices = await character.offer(self.memory.buffer)
         return {"exposition": response['response'], "choices": choices}
 
-    def travel(self, previous_character: Character, new_location: Location):
+    async def travel(self, player_name: str, previous_character: Character, new_location: Location):
         previous_location = previous_character._db_obj.location
         new_character = new_location._db_obj.starting_character
 
         goodbye = '''"Sorry, but I feel I must move on now. It will be quite a while before I return. Goodbye.'''
-        goodbye_response = previous_character.interact(goodbye)
-        response = self.expositioner.invoke({
+        goodbye_response = await previous_character.interact(goodbye)
+        response = await self.expositioner.ainvoke({
             "input": f'The following interaction just occurred. Please describe it to me. Quote {previous_character.name}\'s response into your description. \n\nI say to {previous_character.name}: {goodbye}\n\n{previous_character.name}\'s response to me: {goodbye_response}'
         })
         goodbye_expo = response['response']
 
-        response = self.expositioner.invoke({
+        response = await self.expositioner.ainvoke({
             "input": f'Summarize traveling along the road from {previous_location.name} to {new_location.name}. The new location is described below.\n\n{new_location.name}:{new_location.description}'
         })
         travel_expo = response['response']
 
-        response = self.expositioner.invoke({
+        response = await self.expositioner.ainvoke({
             "input": f'I prepare to interact with {new_character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{new_character.name}: {new_character.public_description}'
         })
         character_expo = response['response']
@@ -106,7 +107,7 @@ class Narrator:
         return {"exposition": exposition, "choices": choices}
 
 
-if __name__ == "__main__":
+async def main():
     llm = OpenAI(
         temperature=1, openai_api_key=os.environ.get('OPENAPI_API_KEY'), max_tokens=1024)
     story = Story(**SAMPLE_STORY.model_dump())
@@ -139,7 +140,7 @@ if __name__ == "__main__":
 
     player_name = 'Steve'
 
-    response = narrator.embark(player_name, story)
+    response = await narrator.embark(player_name, story)
     print(response['exposition'] + '\n\n')
     print(response['choices'])
     print('-----------')
@@ -148,7 +149,7 @@ if __name__ == "__main__":
     print(f"My choice: {choice}")
     print('-----------')
 
-    response = narrator.interact(first_character, choice)
+    response = await narrator.interact(first_character, choice)
     print(response['exposition'])
     print(response['choices'])
     print('-----------')
@@ -157,12 +158,16 @@ if __name__ == "__main__":
     print(f"My choice: {choice}")
     print('-----------')
 
-    response = narrator.interact(first_character, choice)
+    response = await narrator.interact(first_character, choice)
     print(response['exposition'])
     print(response['choices'])
     print('-----------')
 
-    response = narrator.travel(first_character, third_location)
+    response = await narrator.travel(player_name, first_character, third_location)
     print(response['exposition'])
     print(response['choices'])
     print('-----------')
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
