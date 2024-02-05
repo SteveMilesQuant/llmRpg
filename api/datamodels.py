@@ -73,7 +73,8 @@ class LocationResponse(LocationData):
 class CharacterData(BaseModel):
     '''Character data'''
     name: Optional[str] = ""
-    description: Optional[str] = ""
+    public_description: Optional[str] = ""
+    private_description: Optional[str] = ""
     location_id: Optional[int] = None
 
 
@@ -126,7 +127,8 @@ SAMPLE_CHARACTERS = [
         story_id=1,
         location_id=1,
         name="Cheryl",
-        description='''You are a woman. You are a simple farmer of modest means who inherited the family farm some years ago. A hard day’s work might make another person grumpy, but as tired as you may be, you’re always happy to talk to a new friend. You will always start a relationship friendly, but if that person proves untrustworthy or overly negative, you will politely send them on their way without much conversation.
+        public_description='''Cheryl is a middle-aged woman who lives and works on her farm in Southumbra. She has a warm presence and seems very approachable.''',
+        private_description='''You are a woman. You are a simple farmer of modest means who inherited the family farm some years ago. A hard day’s work might make another person grumpy, but as tired as you may be, you’re always happy to talk to a new friend. You will always start a relationship friendly, but if that person proves untrustworthy or overly negative, you will politely send them on their way without much conversation.
 
 Your younger sister, Meryl, lives in Northumbra working the mines. You wish you could be in contact with her more often, but Northumbra is on the other side of the land and the roads leading there can be rough. As sisters can be, Meryl is quite different from you. She thinks you’re too friendly and trusting of strangers. This land is a hard place to live and there are too many trying to take advantage of the too few honest people. You know the harsh reality of where you live, but think we only grow by making friends, and making friends takes a certain amount of trust. “You catch more honey with flies,” you often tell her.
 
@@ -137,7 +139,8 @@ Recently, farms North of your farm, on the road between Southumbra and Middle Um
         story_id=1,
         location_id=2,
         name="Meryl",
-        description='''You are a woman. You work the mines and recently were promoted to foreman when the previous foreman mysteriously disappeared. You don’t start out trusting a new contact, but the honest charm of a friendly person will wear you down.
+        public_description='''Meryl is a woman in her 30s with a hard demeanor who was recently promoted to foreman at the mines in Northumbra. Covered in dirt and shouting orders, it seems she was born ready to step into the role of foreman.''',
+        private_description='''You are a woman. You work the mines and recently were promoted to foreman when the previous foreman mysteriously disappeared. You don’t start out trusting a new contact, but the honest charm of a friendly person will wear you down.
 
 Your older sister, Cheryl, lives on the family farm in Southumbra. She doesn’t know you got promoted to foreman and you’d love to tell her, but it’s hard finding people to take messages down to Southumbra. You love your sister and worry about her. You’re both honest people, a rarity in this land, but you think she’s too trusting of strangers. You think she should keep her guard up longer with people. They should prove to you they’re honest before you trust them with anything.
 
@@ -148,6 +151,7 @@ You’d like to find out why the previous foreman disappeared. He traveled to th
         story_id=1,
         location_id=3,
         name="Daryl",
+        public_description='''Daryl is the middle-aged apothecary owner in Middle Umbra. He is thin, with wiry black hair. He moves quickly working in his shop and his eyes dart around quickly, taking in everything and everyone.''',
         description='''You are a man. Publicly, you are a simple apothecary selling basic remedies to anyone with money. Secretly, you develop poisons and recreational drugs to sell on the black market. Even though most people are lawbreakers in Middle Umbra, the black market items you produce and sell would be a lot of trouble if the law knew about it. You aren’t generally honest with people, but the nefarious side of your business requires that you often hint to people about the extra illegal items you sell.
 
 The process you use to create the black market items you sell produces a large quantity of toxic byproducts. You have hired a less-than-honest character from Middle Umbra to smuggle these toxins south of the city and dump them in the river that flows into the southern farms.

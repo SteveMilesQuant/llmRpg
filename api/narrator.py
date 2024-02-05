@@ -1,5 +1,4 @@
 import os
-from ast import literal_eval
 from typing import List
 from langchain.chains import ConversationChain
 from langchain.prompts.prompt import PromptTemplate
@@ -11,20 +10,17 @@ from location import Location
 from character import Character
 
 
-EXPOSITION_PREFIX = '''You are the narrator of an interactive story. The input you receive is from a Player playing as the main character of this story. Your response should describe what the Player sees and hears, and should use descriptive or creative language, but should generally be brief (2-5 sentences).'''
-
-DIALOG_PREFIX = '''You are a helper to the narrator of an interactive story. Your response should be dialog generated for the user that is appropriate for the current situation.'''
-
-OFFER_PREFIX = '''You are a helper to the narrator of an interactive story. Your response should be four choices that you offer the Player. The choices can be things the player can say to the character they're interacting with, which should be encapsulated in double quotes, and/or things the player can do in that moment, which would not be in double quotes. Offer the Player choices that are appropriate to the situation and character they are interacting with.
-
-You MUST format your response as a Python array of strings.'''
-
-COMMMON_SUFFIX = '''
+NARRATOR_TEMPLATE = '''You are the narrator of an interactive story. The input you receive is from a Player playing as the main character of this story. Your response should describe what the Player sees, hears, and perhaps says (if provided by the Player), and should use descriptive or creative language, but should generally be brief (2-5 sentences).
 
 Previous conversation history:
+------------------------------
 {history}
+------------------------------
 
-New input: {input}
+New input:
+------------------------------
+{input}
+------------------------------
 
 Response:
 '''
@@ -35,92 +31,79 @@ class Narrator:
         self.llm = llm
         self.memory = ConversationSummaryMemory(llm=llm)
 
-        exposition_template = EXPOSITION_PREFIX + COMMMON_SUFFIX
-        exposition_prompt = PromptTemplate(
+        prompt = PromptTemplate(
             input_variables=['history', 'input'],
-            template=exposition_template
+            template=NARRATOR_TEMPLATE
         )
         self.expositioner = ConversationChain(
             llm=llm,
-            prompt=exposition_prompt,
+            prompt=prompt,
             memory=self.memory
         )
-
-        dialogue_template = DIALOG_PREFIX + COMMMON_SUFFIX
-        dialog_prompt = PromptTemplate(
-            input_variables=['history', 'input'],
-            template=dialogue_template
-        )
-        self.dialoguer = ConversationChain(
-            llm=llm,
-            prompt=dialog_prompt
-        )
-
-        offer_template = OFFER_PREFIX + COMMMON_SUFFIX
-        offer_prompt = PromptTemplate(
-            input_variables=['history', 'input'],
-            template=offer_template
-        )
-        self.offerer = ConversationChain(
-            llm=llm,
-            prompt=offer_prompt
-        )
-
-    def offer(self, whatfor: str):
-        choices_str = self.offerer.invoke({
-            "input": f"Offer me choices for {whatfor}.",
-            "history": self.memory.buffer
-        })
-        choices_str = choices_str['response']
-        try:
-            choices = literal_eval(choices_str)
-        except:
-            choices_str = self.offerer.invoke({
-                "input": f"Your response was not formatted correctly. Please reformat. Your last response:\n{choices_str}",
-                "history": ""
-            })
-            choices_str = choices_str['response']
-            choices = literal_eval(choices_str)
-        return choices
 
     def embark(self, player_name: str, story: Story):
         location = story._db_obj.starting_location
         character = location._db_obj.starting_character
 
-        land_expo = self.expositioner.predict(
-            input=f'My name is {player_name}. I am just starting this story as a traveler from outside the realm and I know nothing about this land. Summarize the following setting to me.\n\nSETTING: {story.setting}')
-        location_expo = self.expositioner.predict(
-            input=f'I arrive at {location.name}. Summarize that location to me according to the following description.\n\n\{location.name}: {location.description}')
-        character_expo = self.expositioner.predict(
-            input=f'I prepare to interact with {character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{character.name}: {character.description}')
-        choices = self.offer(f"introducing myself to {character.name}")
+        response = self.expositioner.invoke({
+            "input": f'My name is {player_name}. I am just starting this story as a traveler from outside the realm and I know nothing about this land. Summarize the following setting to me.\n\nSETTING: {story.setting}'
+        })
+        land_expo = response['response']
+
+        response = self.expositioner.invoke({
+            "input": f'I arrive at {location.name}. Summarize that location to me according to the following description.\n\n\{location.name}: {location.description}'
+        })
+        location_expo = response['response']
+
+        response = self.expositioner.invoke({
+            "input": f'I prepare to interact with {character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{character.name}: {character.public_description}'
+        })
+        character_expo = response['response']
+
+        choices = [
+            f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to help people."''',
+            f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to make money."'''
+        ]
+
         return {"exposition": land_expo + '\n\n' + location_expo + '\n\n' + character_expo, "choices": choices}
 
     def interact(self, character: Character, interaction_desc: str):
         character_response = character.interact(interaction_desc)
-        response = self.expositioner.predict(
-            input=f'The following interaction just occurred. Please describe it to me. Quote {character.name}\'s response into your description. \n\nI say to {character.name}: {interaction_desc}\n\n{character.name}\'s response to me: {character_response}')
-        choices = self.offer(f'responding to {character.name}')
-        return {"exposition": response, "choices": choices}
+        response = self.expositioner.invoke({
+            "input": f'The following interaction just occurred. Please describe it to me. Quote {character.name}\'s response into your description. \n\nI said to {character.name}: {interaction_desc}\n\n{character.name}\'s response to me: {character_response}'
+        })
+        choices = character.offer(self.memory.buffer)
+        return {"exposition": response['response'], "choices": choices}
 
     def travel(self, previous_character: Character, new_location: Location):
         previous_location = previous_character._db_obj.location
         new_character = new_location._db_obj.starting_character
 
-        goodbye = self.dialoguer.invoke({
-            "input": f'Formulate a response for me to leave my conversation with {previous_character.name}',
-            "history": self.memory.buffer
-        })
-        goodbye = goodbye['response']
+        goodbye = '''"Sorry, but I feel I must move on now. It will be quite a while before I return. Goodbye.'''
         goodbye_response = previous_character.interact(goodbye)
-        goodbye_expo = self.expositioner.predict(
-            input=f'The following interaction just occurred. Please describe it to me. Quote {previous_character.name}\'s response into your description. \n\nI say to {previous_character.name}: {goodbye}\n\n{previous_character.name}\'s response to me: {goodbye_response}')
-        travel_expo = self.expositioner.predict(
-            input=f'Summarize traveling along the road from {previous_location.name} to {new_location.name}. The new location is described below.\n\n{new_location.name}:{new_location.description}')
-        character_expo = self.expositioner.predict(
-            input=f'I prepare to interact with {new_character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{new_character.name}: {new_character.description}')
-        choices = self.offer(f"introducing myself to {new_character.name}")
-        return {"exposition": goodbye_expo + '\n\n' + travel_expo + '\n\n' + character_expo, "choices": choices}
+        response = self.expositioner.invoke({
+            "input": f'The following interaction just occurred. Please describe it to me. Quote {previous_character.name}\'s response into your description. \n\nI say to {previous_character.name}: {goodbye}\n\n{previous_character.name}\'s response to me: {goodbye_response}'
+        })
+        goodbye_expo = response['response']
+
+        response = self.expositioner.invoke({
+            "input": f'Summarize traveling along the road from {previous_location.name} to {new_location.name}. The new location is described below.\n\n{new_location.name}:{new_location.description}'
+        })
+        travel_expo = response['response']
+
+        response = self.expositioner.invoke({
+            "input": f'I prepare to interact with {new_character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{new_character.name}: {new_character.public_description}'
+        })
+        character_expo = response['response']
+
+        choices = [
+            f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to help people."''',
+            f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to make money."'''
+        ]
+
+        exposition = goodbye_expo + '\n\n' + travel_expo + '\n\n' + character_expo
+
+        return {"exposition": exposition, "choices": choices}
 
 
 if __name__ == "__main__":
@@ -170,7 +153,17 @@ if __name__ == "__main__":
     print(response['choices'])
     print('-----------')
 
+    choice = response['choices'][0]
+    print(f"My choice: {choice}")
+    print('-----------')
+
+    response = narrator.interact(first_character, choice)
+    print(response['exposition'])
+    print(response['choices'])
+    print('-----------')
+
     response = narrator.travel(first_character, third_location)
     print(response['exposition'])
     print(response['choices'])
     print('-----------')
+    print(third_location)

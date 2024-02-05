@@ -68,7 +68,8 @@ class CharacterDb(Base):
     story_id: Mapped[int] = mapped_column(ForeignKey('story.id'))
     location_id: Mapped[int] = mapped_column(ForeignKey('location.id'))
     name: Mapped[str] = mapped_column(Text,)
-    description: Mapped[str] = mapped_column(Text, nullable=True)
+    public_description: Mapped[str] = mapped_column(Text, nullable=True)
+    private_description: Mapped[str] = mapped_column(Text, nullable=True)
 
     location: Mapped['LocationDb'] = relationship(lazy='raise')
     story: Mapped['StoryDb'] = relationship(
