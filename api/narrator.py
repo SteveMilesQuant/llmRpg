@@ -118,7 +118,7 @@ if __name__ == "__main__":
     first_location = Location(**locations[0].model_dump())
     first_location._db_obj = Object()
 
-    third_location = Location(**locations[0].model_dump())
+    third_location = Location(**locations[2].model_dump())
     third_location._db_obj = Object()
 
     first_character = Character(**characters[0].model_dump())
@@ -166,4 +166,3 @@ if __name__ == "__main__":
     print(response['exposition'])
     print(response['choices'])
     print('-----------')
-    print(third_location)
