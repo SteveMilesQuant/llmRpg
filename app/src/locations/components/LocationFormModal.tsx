@@ -48,7 +48,7 @@ const LocationFormModal = ({
         </ModalHeader>
         <ModalCloseButton />
         <ModalBody>
-          <LocationFormBody {...locationForm} />
+          <LocationFormBody {...locationForm} showStartingCharacter={false} />
         </ModalBody>
         <ModalFooter>
           <SubmitButton

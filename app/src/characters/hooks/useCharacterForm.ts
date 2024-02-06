@@ -1,16 +1,18 @@
-import { valibotResolver } from "@hookform/resolvers/valibot";
+import { yupResolver } from "@hookform/resolvers/yup";
 import { useMemo } from "react";
 import { FieldValues, useForm } from "react-hook-form";
-import { type Output, object, string, minLength } from "valibot";
+import { object, string, number, InferType } from "yup";
 import { Character } from "../Character";
 import { useAddCharacter, useUpdateCharacter } from "./useCharacters";
 
-export const characterSchema = object({
-  name: string([minLength(1, "Name is required.")]),
-  description: string(),
+export const characterSchema = object().shape({
+  name: string().required(),
+  public_description: string(),
+  private_description: string(),
+  location_id: number(),
 });
 
-export type FormData = Output<typeof characterSchema>;
+export type FormData = InferType<typeof characterSchema>;
 
 const useCharacterForm = (
   storyId?: number,
@@ -24,7 +26,7 @@ const useCharacterForm = (
     formState: { errors, isValid },
     reset,
   } = useForm<FormData>({
-    resolver: valibotResolver(characterSchema),
+    resolver: yupResolver(characterSchema),
     defaultValues: useMemo(() => {
       return {
         ...character,

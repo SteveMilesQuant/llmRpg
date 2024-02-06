@@ -44,9 +44,37 @@ class Story(StoryResponse):
         await session.delete(self._db_obj)
         await session.commit()
 
+    async def add_location(self, session: Any, location: Any):
+        await session.refresh(self._db_obj, ['locations'])
+        for db_location in self._db_obj.locations:
+            if db_location.id == location.id:
+                return
+        self._db_obj.locations.append(location._db_obj)
+        await session.commit()
+
+    async def remove_location(self, session: Any, location: Any):
+        await session.refresh(self._db_obj, ['locations'])
+        self._db_obj.locations.remove(location._db_obj)
+        await session.commit()
+        await location.delete(session)
+
     async def locations(self, session: Any) -> List[LocationDb]:
         await session.refresh(self._db_obj, ['locations'])
         return self._db_obj.locations
+
+    async def add_character(self, session: Any, character: Any):
+        await session.refresh(self._db_obj, ['characters'])
+        for db_character in self._db_obj.characters:
+            if db_character.id == character.id:
+                return
+        self._db_obj.characters.append(character._db_obj)
+        await session.commit()
+
+    async def remove_character(self, session: Any, character: Any):
+        await session.refresh(self._db_obj, ['characters'])
+        self._db_obj.characters.remove(character._db_obj)
+        await session.commit()
+        await character.delete(session)
 
     async def characters(self, session: Any) -> List[CharacterDb]:
         await session.refresh(self._db_obj, ['characters'])

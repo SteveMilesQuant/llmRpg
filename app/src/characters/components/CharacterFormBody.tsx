@@ -2,20 +2,32 @@ import {
   FormControl,
   FormLabel,
   Input,
+  Select,
   SimpleGrid,
   Textarea,
 } from "@chakra-ui/react";
 import { FieldErrors, UseFormRegister } from "react-hook-form";
 import { FormData } from "../hooks/useCharacterForm";
 import InputError from "../../components/InputError";
+import { useLocations } from "../../locations";
 
 interface Props {
   register: UseFormRegister<FormData>;
   errors: FieldErrors<FormData>;
   isReadOnly?: boolean;
+  showLocation?: boolean;
+  storyId?: number;
 }
 
-const CharacterFormBody = ({ register, errors, isReadOnly }: Props) => {
+const CharacterFormBody = ({
+  register,
+  errors,
+  isReadOnly,
+  showLocation,
+  storyId,
+}: Props) => {
+  const { data: locations } = useLocations(storyId);
+
   return (
     <SimpleGrid columns={1} gap={5}>
       <FormControl>
@@ -27,14 +39,47 @@ const CharacterFormBody = ({ register, errors, isReadOnly }: Props) => {
           <Input {...register("name")} type="text" isReadOnly={isReadOnly} />
         </InputError>
       </FormControl>
+      {showLocation && (
+        <FormControl>
+          <FormLabel>Location</FormLabel>
+          <InputError
+            label={errors.location_id?.message}
+            isOpen={errors.location_id ? true : false}
+          >
+            <Select {...register("location_id")}>
+              <option value="">Select location</option>{" "}
+              {locations?.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name}
+                </option>
+              ))}
+            </Select>
+          </InputError>
+        </FormControl>
+      )}
       <FormControl>
-        <FormLabel>Description</FormLabel>
+        <FormLabel>Public Description</FormLabel>
         <InputError
-          label={errors.description?.message}
-          isOpen={errors.description ? true : false}
+          label={errors.public_description?.message}
+          isOpen={errors.public_description ? true : false}
         >
           <Input
-            {...register("description")}
+            {...register("public_description")}
+            as={Textarea}
+            size="xl"
+            height="5rem"
+            isReadOnly={isReadOnly}
+          />
+        </InputError>
+      </FormControl>
+      <FormControl>
+        <FormLabel>Private Description</FormLabel>
+        <InputError
+          label={errors.private_description?.message}
+          isOpen={errors.private_description ? true : false}
+        >
+          <Input
+            {...register("private_description")}
             as={Textarea}
             size="xl"
             height="15rem"

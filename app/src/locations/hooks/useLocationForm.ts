@@ -1,16 +1,17 @@
-import { valibotResolver } from "@hookform/resolvers/valibot";
+import { yupResolver } from "@hookform/resolvers/yup";
 import { useMemo } from "react";
 import { FieldValues, useForm } from "react-hook-form";
-import { type Output, object, string, minLength } from "valibot";
 import { Location } from "../Location";
 import { useAddLocation, useUpdateLocation } from "./useLocations";
+import { object, string, number, InferType } from "yup";
 
-export const locationSchema = object({
-  name: string([minLength(1, "Name is required.")]),
+export const locationSchema = object().shape({
+  name: string().required(),
   description: string(),
+  starting_character_id: number(),
 });
 
-export type FormData = Output<typeof locationSchema>;
+export type FormData = InferType<typeof locationSchema>;
 
 const useLocationForm = (
   storyId?: number,
@@ -24,7 +25,7 @@ const useLocationForm = (
     formState: { errors, isValid },
     reset,
   } = useForm<FormData>({
-    resolver: valibotResolver(locationSchema),
+    resolver: yupResolver(locationSchema),
     defaultValues: useMemo(() => {
       return {
         ...location,

@@ -345,6 +345,7 @@ async def post_new_location(request: Request, story_id: int, new_location_data: 
         new_location = Location(**new_location_data.dict())
         new_location.story_id = story_id
         await new_location.create(session)
+        await story.add_location(session, new_location)
         return new_location
 
 
@@ -365,7 +366,7 @@ async def delete_location(request: Request, story_id: int, location_id: int):
             if db_location.id == location_id:
                 location = Location(db_obj=db_location)
                 await location.create(session)
-                await location.delete(session)
+                await story.remove_location(session, location)
                 return
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Location id={location_id} does not exist for story id={story_id}")
@@ -451,6 +452,7 @@ async def post_new_character(request: Request, story_id: int, new_character_data
         new_character = Character(**new_character_data.dict())
         new_character.story_id = story_id
         await new_character.create(session)
+        await story.add_character(session, new_character)
         return new_character
 
 
@@ -471,7 +473,7 @@ async def delete_character(request: Request, story_id: int, character_id: int):
             if db_character.id == character_id:
                 character = Character(db_obj=db_character)
                 await character.create(session)
-                await character.delete(session)
+                await story.remove_character(session, character)
                 return
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Character id={character_id} does not exist for story id={story_id}")

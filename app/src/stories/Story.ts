@@ -3,6 +3,7 @@ export interface StoryData {
   blurb: string;
   setting: string;
   is_published: boolean;
+  starting_location_id: number;
 }
 
 export interface Story extends StoryData {

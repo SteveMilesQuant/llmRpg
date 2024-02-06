@@ -41,7 +41,7 @@ const StoryFormModal = ({ title, isOpen, onClose }: Props) => {
         </ModalHeader>
         <ModalCloseButton />
         <ModalBody>
-          <StoryFormBody {...storyForm} />
+          <StoryFormBody {...storyForm} showLocation={false} />
         </ModalBody>
         <ModalFooter>
           <HStack justifyContent="right" spacing={3}>

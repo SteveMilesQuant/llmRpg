@@ -48,7 +48,7 @@ const CharacterFormModal = ({
         </ModalHeader>
         <ModalCloseButton />
         <ModalBody>
-          <CharacterFormBody {...characterForm} />
+          <CharacterFormBody {...characterForm} showLocation={false} />
         </ModalBody>
         <ModalFooter>
           <SubmitButton

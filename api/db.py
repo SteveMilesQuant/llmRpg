@@ -1,6 +1,6 @@
 from typing import Optional, List
 from datetime import datetime
-from sqlalchemy import Text, ForeignKey
+from sqlalchemy import Text, ForeignKey, Column, Table
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.pool import NullPool
@@ -8,6 +8,21 @@ from sqlalchemy.pool import NullPool
 
 class Base(DeclarativeBase):
     pass
+
+
+story_x_locations = Table(
+    'story_x_locations',
+    Base.metadata,
+    Column('story_id', ForeignKey('story.id'), primary_key=True),
+    Column('location_id', ForeignKey('location.id'), primary_key=True),
+)
+
+story_x_characters = Table(
+    'story_x_characters',
+    Base.metadata,
+    Column('story_id', ForeignKey('story.id'), primary_key=True),
+    Column('character_id', ForeignKey('character.id'), primary_key=True),
+)
 
 
 class UserDb(Base):
@@ -39,41 +54,47 @@ class StoryDb(Base):
     starting_location_id: Mapped[int] = mapped_column(
         ForeignKey('location.id'), nullable=True)
 
-    starting_location: Mapped['LocationDb'] = relationship(lazy='raise')
+    starting_location: Mapped['LocationDb'] = relationship(
+        lazy='raise', foreign_keys=[starting_location_id])
     locations: Mapped[List['LocationDb']] = relationship(
-        back_populates='story', lazy='raise', cascade='all, delete')
+        back_populates='story', lazy='raise', cascade='all, delete', secondary=story_x_locations)
     characters: Mapped[List['CharacterDb']] = relationship(
-        back_populates='story', lazy='raise', cascade='all, delete')
+        back_populates='story', lazy='raise', cascade='all, delete', secondary=story_x_characters)
 
 
 class LocationDb(Base):
     __tablename__ = 'location'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    story_id: Mapped[int] = mapped_column(ForeignKey('story.id'))
+    story_id: Mapped[int] = mapped_column(
+        ForeignKey('story.id'), nullable=True)
     name: Mapped[str] = mapped_column(Text,)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     starting_character_id: Mapped[int] = mapped_column(
         ForeignKey('character.id'), nullable=True)
 
-    starting_character: Mapped['CharacterDb'] = relationship(lazy='raise')
+    starting_character: Mapped['CharacterDb'] = relationship(
+        lazy='raise', foreign_keys=[starting_character_id])
     story: Mapped['StoryDb'] = relationship(
-        back_populates='locations', lazy='raise')
+        back_populates='locations', lazy='raise', foreign_keys=[story_id])
 
 
 class CharacterDb(Base):
     __tablename__ = 'character'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    story_id: Mapped[int] = mapped_column(ForeignKey('story.id'))
-    location_id: Mapped[int] = mapped_column(ForeignKey('location.id'))
+    story_id: Mapped[int] = mapped_column(
+        ForeignKey('story.id'), nullable=True)
+    location_id: Mapped[int] = mapped_column(
+        ForeignKey('location.id'), nullable=True)
     name: Mapped[str] = mapped_column(Text,)
     public_description: Mapped[str] = mapped_column(Text, nullable=True)
     private_description: Mapped[str] = mapped_column(Text, nullable=True)
 
-    location: Mapped['LocationDb'] = relationship(lazy='raise')
+    location: Mapped['LocationDb'] = relationship(
+        lazy='raise', foreign_keys=[location_id])
     story: Mapped['StoryDb'] = relationship(
-        back_populates='characters', lazy='raise')
+        back_populates='characters', lazy='raise', foreign_keys=[story_id])
 
 
 async def init_db(user: str, password: str, url: str, port: str, schema_name: str, for_pytest: Optional[bool] = False):

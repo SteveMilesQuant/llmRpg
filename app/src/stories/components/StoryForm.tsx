@@ -26,7 +26,12 @@ const StoryForm = ({ story }: Props) => {
 
   return (
     <>
-      <StoryFormBody {...storyForm} isReadOnly={!isEditing} />
+      <StoryFormBody
+        {...storyForm}
+        isReadOnly={!isEditing}
+        showLocation={true}
+        storyId={story?.id}
+      />
       <CrudButtonSet
         isEditing={isEditing}
         setIsEditing={setIsEditing}

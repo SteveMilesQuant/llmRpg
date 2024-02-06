@@ -2,20 +2,32 @@ import {
   FormControl,
   FormLabel,
   Input,
+  Select,
   Stack,
   Textarea,
 } from "@chakra-ui/react";
 import { FieldErrors, UseFormRegister } from "react-hook-form";
 import { FormData } from "../hooks/useStoryForm";
 import InputError from "../../components/InputError";
+import { useLocations } from "../../locations";
 
 interface Props {
   register: UseFormRegister<FormData>;
   errors: FieldErrors<FormData>;
   isReadOnly?: boolean;
+  showLocation?: boolean;
+  storyId?: number;
 }
 
-const StoryFormBody = ({ register, errors, isReadOnly }: Props) => {
+const StoryFormBody = ({
+  register,
+  errors,
+  isReadOnly,
+  showLocation,
+  storyId,
+}: Props) => {
+  const { data: locations } = useLocations(storyId);
+
   return (
     <Stack spacing={5}>
       <FormControl>
@@ -42,6 +54,24 @@ const StoryFormBody = ({ register, errors, isReadOnly }: Props) => {
           />
         </InputError>
       </FormControl>
+      {showLocation && (
+        <FormControl>
+          <FormLabel>Starting location</FormLabel>
+          <InputError
+            label={errors.starting_location_id?.message}
+            isOpen={errors.starting_location_id ? true : false}
+          >
+            <Select {...register("starting_location_id")}>
+              <option value="">Select location</option>{" "}
+              {locations?.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name}
+                </option>
+              ))}
+            </Select>
+          </InputError>
+        </FormControl>
+      )}
       <FormControl>
         <FormLabel>Setting</FormLabel>
         <InputError

@@ -30,7 +30,12 @@ const LocationForm = ({ storyId, location }: Props) => {
 
   return (
     <>
-      <LocationFormBody {...locationForm} isReadOnly={!isEditing} />
+      <LocationFormBody
+        {...locationForm}
+        isReadOnly={!isEditing}
+        showStartingCharacter={true}
+        storyId={storyId}
+      />
       <CrudButtonSet
         isEditing={isEditing}
         setIsEditing={setIsEditing}
