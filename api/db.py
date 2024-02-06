@@ -17,13 +17,6 @@ story_x_locations = Table(
     Column('location_id', ForeignKey('location.id'), primary_key=True),
 )
 
-story_x_characters = Table(
-    'story_x_characters',
-    Base.metadata,
-    Column('story_id', ForeignKey('story.id'), primary_key=True),
-    Column('character_id', ForeignKey('character.id'), primary_key=True),
-)
-
 
 class UserDb(Base):
     __tablename__ = 'user'
@@ -59,15 +52,13 @@ class StoryDb(Base):
     locations: Mapped[List['LocationDb']] = relationship(
         back_populates='story', lazy='raise', cascade='all, delete', secondary=story_x_locations)
     characters: Mapped[List['CharacterDb']] = relationship(
-        back_populates='story', lazy='raise', cascade='all, delete', secondary=story_x_characters)
+        back_populates='story', lazy='raise', cascade='all, delete')
 
 
 class LocationDb(Base):
     __tablename__ = 'location'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    story_id: Mapped[int] = mapped_column(
-        ForeignKey('story.id'), nullable=True)
     name: Mapped[str] = mapped_column(Text,)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     starting_character_id: Mapped[int] = mapped_column(
@@ -76,15 +67,14 @@ class LocationDb(Base):
     starting_character: Mapped['CharacterDb'] = relationship(
         lazy='raise', foreign_keys=[starting_character_id])
     story: Mapped['StoryDb'] = relationship(
-        back_populates='locations', lazy='raise', foreign_keys=[story_id])
+        back_populates='locations', lazy='raise', secondary=story_x_locations)
 
 
 class CharacterDb(Base):
     __tablename__ = 'character'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    story_id: Mapped[int] = mapped_column(
-        ForeignKey('story.id'), nullable=True)
+    story_id: Mapped[int] = mapped_column(ForeignKey('story.id'))
     location_id: Mapped[int] = mapped_column(
         ForeignKey('location.id'), nullable=True)
     name: Mapped[str] = mapped_column(Text,)
