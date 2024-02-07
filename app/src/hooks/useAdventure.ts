@@ -1,6 +1,6 @@
 import ms from "ms";
 import APIClient from "../services/api-client";
-import APIHooks from "../services/api-hooks";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const CACHE_KEY_ADVENTURES = ["adventures"];
 
@@ -14,17 +14,46 @@ interface Choice {
   choice: string;
 }
 
-const adventureHooks = new APIHooks<Adventure>(
-  new APIClient<Adventure>("/adventure"),
-  CACHE_KEY_ADVENTURES,
-  ms("5m")
-);
+const adventureClient = new APIClient<Adventure>("/adventure");
+const interactionClient = new APIClient<Adventure, Choice>("/interact");
 
-const interactionHooks = new APIHooks<Adventure, Choice>(
-  new APIClient<Adventure, Choice>("/interact"),
-  CACHE_KEY_ADVENTURES, // yes, use the same key here
-  ms("5m")
-);
+export const useAdventure = () => {
+  return useQuery<Adventure, Error>({
+    queryKey: CACHE_KEY_ADVENTURES,
+    queryFn: () => adventureClient.get(),
+    staleTime: ms("5m"),
+  });
+};
 
-export const useAdventure = adventureHooks.useData;
-export const useAddInteraction = interactionHooks.useAdd;
+export interface AddInteractionContext {
+  prevData: Adventure;
+}
+
+export const useAddInteraction = () => {
+  const queryClient = useQueryClient();
+
+  const addData = useMutation<Adventure, Error, Choice, AddInteractionContext>({
+    mutationFn: (data: Choice) => interactionClient.post(data),
+    onMutate: (newData: Choice) => {
+      const prevData =
+        queryClient.getQueryData<Adventure>(CACHE_KEY_ADVENTURES) ||
+        ({} as Adventure);
+      if (!newData) return; // this is silly, but npm run build is complaining about not using newData
+      return { prevData };
+    },
+    onSuccess: (newData, submittedData) => {
+      queryClient.setQueryData<Adventure>(CACHE_KEY_ADVENTURES, newData);
+      if (!submittedData) return; // this is silly, but npm run build is complaining about not using newData
+    },
+    onError: (error, newData, context) => {
+      if (!error || !context) return;
+      queryClient.setQueryData<Adventure>(
+        CACHE_KEY_ADVENTURES,
+        () => context.prevData
+      );
+      if (!newData) return; // this is silly, but npm run build is complaining about not using newData
+    },
+  });
+
+  return addData;
+};

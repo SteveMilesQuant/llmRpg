@@ -3,11 +3,7 @@ import { useAdventure, useAddInteraction } from "../hooks/useAdventure";
 
 const Adventure = () => {
   const { data: adventure } = useAdventure();
-  const addInteraction = useAddInteraction({
-    queryMutation: (newData, dataList) => {
-      return dataList;
-    },
-  });
+  const addInteraction = useAddInteraction();
 
   if (!adventure) return;
 

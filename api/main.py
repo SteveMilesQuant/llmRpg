@@ -513,6 +513,7 @@ async def post_simulate(request: Request, user_choice: ChoiceData):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail=f"Session not found. Start a new session.")
         print(user_choice)
+        return session
 
 
 ###############################################################################
