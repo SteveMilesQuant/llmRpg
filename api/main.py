@@ -9,7 +9,7 @@ from oauthlib.oauth2 import WebApplicationClient
 from langchain_openai import OpenAI
 from authentication import user_id_to_auth_token, auth_token_to_user_id
 from db import init_db, close_db
-from datamodels import Object, StoryData, StoryResponse, LocationData, LocationResponse, CharacterData, CharacterResponse, QueryData
+from datamodels import Object, StoryData, StoryResponse, LocationData, LocationResponse, CharacterData, CharacterResponse, SessionResponse, ChoiceData
 from user import User
 from session import Session
 from story import Story, all_stories
@@ -135,7 +135,9 @@ async def signin_post(request: Request, google_response_token: dict):
 
 
 async def get_session(request, db_session) -> Optional[Session]:
-    token = request.headers.get('Authorization')
+    token = request.headers.get('Session')
+    if token is None:
+        return None
     session_id = auth_token_to_user_id(app, token)
     if session_id:
         session = Session(id=session_id)
@@ -150,23 +152,30 @@ async def get_session(request, db_session) -> Optional[Session]:
 @api_router.post("/start/{story_id}")
 async def session_start_post(request: Request, story_id: int):
     async with app.db_sessionmaker() as db_session:
-        session = Session()
-        await session.create(db_session)
-
-        session_token, token_expiration = user_id_to_auth_token(
-            app, session.id)
-
         story = Story(id=story_id)
         await story.create(db_session)
         if story.id is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail=f"Story with id={story_id} not found.")
 
-        session.expiration = token_expiration
-        session.story_id = story.id
-        session.currenct_character_id = story.starting_character_id
-        await session.update(db_session)
+        session = await get_session(request, db_session)
+        if session is None:
+            session = Session(story_id=story.id)
+            await session.create(db_session)
+            if session.id is None:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                    detail=f"Session could not be created")
+            await session.update_current_status(
+                db_session,
+                current_character_id=story._db_obj.starting_location.starting_character_id,
+                current_narration="",
+                current_choices=["BEGIN"]
+            )
 
+        session_token, token_expiration = user_id_to_auth_token(
+            app, session.id)
+        session.expiration = token_expiration
+        await session.update(db_session)
         return {"token": session_token, "expiration": token_expiration}
 
 
@@ -343,7 +352,6 @@ async def post_new_location(request: Request, story_id: int, new_location_data: 
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail=f"User does not have permission for story id={story_id}")
         new_location = Location(**new_location_data.dict())
-        new_location.story_id = story_id
         await new_location.create(session)
         await story.add_location(session, new_location)
         return new_location
@@ -482,6 +490,29 @@ async def delete_character(request: Request, story_id: int, character_id: int):
 ###############################################################################
 # STORY SIMULATION
 ###############################################################################
+
+# Public route, but session required
+@api_router.get("/adventure", response_model=SessionResponse)
+async def get_simulate(request: Request):
+    '''Get the current status of the ongoing adventure.'''
+    async with app.db_sessionmaker() as db_session:
+        session = await get_session(request, db_session)
+        if session is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Session not found. Start a new session.")
+        return session
+
+
+# Public route, but session required
+@api_router.post("/interact", response_model=SessionResponse)
+async def post_simulate(request: Request, user_choice: ChoiceData):
+    '''Make a single interaction in the adventure.'''
+    async with app.db_sessionmaker() as db_session:
+        session = await get_session(request, db_session)
+        if session is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Session not found. Start a new session.")
+        print(user_choice)
 
 
 ###############################################################################

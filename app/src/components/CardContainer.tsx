@@ -2,10 +2,11 @@ import { Card, CardBody, LinkBox } from "@chakra-ui/react";
 import { ReactNode } from "react";
 
 interface Props {
+  onClick: () => void;
   children: ReactNode;
 }
 
-const CardContainer = ({ children }: Props) => {
+const CardContainer = ({ children, onClick }: Props) => {
   return (
     <LinkBox
       as={Card}
@@ -14,6 +15,7 @@ const CardContainer = ({ children }: Props) => {
         transform: "scale(1.03)",
         transition: "transform .2s ease-in",
       }}
+      onClick={onClick}
     >
       <CardBody textColor="brand.100">{children}</CardBody>
     </LinkBox>

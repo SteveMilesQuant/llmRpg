@@ -6,7 +6,7 @@ import PrivateRoutes from "./PrivateRoutes";
 import Stories from "./Stories";
 import PageContext, { PageContextType } from "./pageContext";
 import Design from "./Design";
-import Story from "./Story";
+import Adventure from "./Adventure";
 
 const router = createBrowserRouter([
   {
@@ -28,8 +28,8 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <Home /> },
           {
-            path: "stories/:id",
-            element: <Story />,
+            path: "adventure",
+            element: <Adventure />,
           },
         ],
       },

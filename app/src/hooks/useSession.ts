@@ -16,7 +16,7 @@ const useSessionStore = create<SessionStore>((set) => ({
   stop: () => set(() => ({ inProgress: false })),
 }));
 
-const useSession = () => {
+const useSession = (onSuccess?: () => void) => {
   const { inProgress, expiration, start, stop } = useSessionStore();
   const [isChecking, setIsChecking] = useState(true);
 
@@ -25,7 +25,7 @@ const useSession = () => {
     const sessionToken = localStorage.getItem("sessionToken");
     const sessionExpiration = localStorage.getItem("sessionExpiration");
     if (sessionToken && sessionExpiration) {
-      axiosInstance.defaults.headers.common = { Authorization: sessionToken };
+      axiosInstance.defaults.headers.common = { Session: sessionToken };
       start(new Date(sessionExpiration + "Z"));
     }
     setIsChecking(false);
@@ -36,10 +36,10 @@ const useSession = () => {
       localStorage.setItem("sessionToken", response.data.token);
       localStorage.setItem("sessionExpiration", response.data.expiration);
       axiosInstance.defaults.headers.common = {
-        Authorization: response.data.token,
+        Session: response.data.token,
       };
-
       start(new Date(response.data.expiration + "Z"));
+      if (onSuccess) onSuccess();
     });
   };
 
@@ -48,7 +48,7 @@ const useSession = () => {
       localStorage.setItem("sessionToken", response.data.token);
       localStorage.setItem("sessionExpiration", response.data.expiration);
       axiosInstance.defaults.headers.common = {
-        Authorization: response.data.token,
+        Session: response.data.token,
       };
       start(new Date(response.data.expiration + "Z"));
     });

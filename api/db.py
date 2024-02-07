@@ -30,10 +30,23 @@ class SessionDb(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     expiration: Mapped[datetime] = mapped_column(nullable=True)
-    story_id: Mapped[int] = mapped_column(
-        ForeignKey('story.id'), nullable=True)
+    story_id: Mapped[int] = mapped_column(ForeignKey('story.id'))
     current_character_id: Mapped[int] = mapped_column(
         ForeignKey('character.id'), nullable=True)
+    current_narration: Mapped[str] = mapped_column(Text, nullable=True)
+
+    story: Mapped['StoryDb'] = relationship(
+        lazy='raise', foreign_keys=[story_id])
+    current_choices: Mapped[List['ChoiceDb']] = relationship(
+        lazy='raise', cascade='all, delete')
+
+
+class ChoiceDb(Base):
+    __tablename__ = 'choice'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey('session.id'))
+    choice: Mapped[str] = mapped_column(Text)
 
 
 class StoryDb(Base):

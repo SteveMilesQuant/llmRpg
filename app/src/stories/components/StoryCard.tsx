@@ -1,10 +1,11 @@
-import { Divider, HStack, Heading, LinkOverlay, Text } from "@chakra-ui/react";
-import { Link as RouterLink } from "react-router-dom";
+import { Divider, HStack, Heading, Text } from "@chakra-ui/react";
 import { Story } from "../Story";
 import DeleteButton from "../../components/DeleteButton";
 import CardContainer from "../../components/CardContainer";
 import { useContext } from "react";
 import PageContext, { PageContextType } from "../../pages/pageContext";
+import useSession from "../../hooks/useSession";
+import { useNavigate } from "react-router-dom";
 
 interface Props {
   story: Story;
@@ -13,19 +14,25 @@ interface Props {
 
 const StoryCard = ({ story, onDelete }: Props) => {
   const pageContext = useContext(PageContext);
-  const link =
-    pageContext === PageContextType.public
-      ? "/stories/" + story.id
-      : "/design/" + story.id;
+  const navigate = useNavigate();
+  const { onStart } = useSession(() => {
+    navigate("/adventure");
+  });
 
   return (
-    <CardContainer>
+    <CardContainer
+      onClick={() => {
+        if (pageContext === PageContextType.public) {
+          onStart(story.id);
+        } else {
+          navigate("/design/" + story.id);
+        }
+      }}
+    >
       <HStack justifyContent="space-between">
-        <LinkOverlay as={RouterLink} to={link}>
-          <HStack alignItems="end">
-            <Heading fontSize="2xl">{story.title}</Heading>
-          </HStack>
-        </LinkOverlay>
+        <HStack alignItems="end">
+          <Heading fontSize="2xl">{story.title}</Heading>
+        </HStack>
         {pageContext === PageContextType.design && onDelete && (
           <DeleteButton onConfirm={onDelete}>{story.title}</DeleteButton>
         )}

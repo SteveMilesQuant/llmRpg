@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import date, datetime, time
 
 
@@ -35,12 +35,18 @@ class SessionData(BaseModel):
     '''Session data'''
     expiration: Optional[datetime] = None
     story_id: Optional[int] = None
-    current_character_id: Optional[int] = None
 
 
 class SessionResponse(SessionData):
     '''Session response'''
     id: Optional[int] = None
+    current_character_id: Optional[int] = None
+    current_choices: List[str] = []
+    current_narration: Optional[str] = ""
+
+
+class ChoiceData(BaseModel):
+    choice: Optional[str] = None
 
 
 class StoryData(BaseModel):
@@ -67,7 +73,6 @@ class LocationData(BaseModel):
 class LocationResponse(LocationData):
     '''Location response'''
     id: Optional[int] = None
-    story_id: Optional[int] = None
 
 
 class CharacterData(BaseModel):
@@ -82,11 +87,6 @@ class CharacterResponse(CharacterData):
     '''Character response'''
     id: Optional[int] = None
     story_id: Optional[int] = None
-
-
-class QueryData(BaseModel):
-    '''Story query data'''
-    user_response: str
 
 
 SAMPLE_STORY = StoryResponse(
