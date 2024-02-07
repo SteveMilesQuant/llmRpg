@@ -1,6 +1,7 @@
 import os
 import asyncio
-from typing import List
+import pickle
+from typing import Optional
 from langchain.chains import ConversationChain
 from langchain.prompts.prompt import PromptTemplate
 from langchain.memory import ConversationSummaryMemory
@@ -28,9 +29,13 @@ Response:
 
 
 class Narrator:
-    def __init__(self, llm):
+    def __init__(self, llm: Optional[OpenAI] = None, memory_buffer: Optional[ConversationSummaryMemory] = None):
         self.llm = llm
-        self.memory = ConversationSummaryMemory(llm=llm)
+        if memory_buffer is not None:
+            self.memory = ConversationSummaryMemory(
+                llm=llm, buffer=memory_buffer)
+        else:
+            self.memory = ConversationSummaryMemory(llm=llm)
 
         prompt = PromptTemplate(
             input_variables=['history', 'input'],
@@ -158,12 +163,18 @@ async def main():
     print(f"My choice: {choice}")
     print('-----------')
 
-    response = await narrator.interact(first_character, choice)
+    # Change all conversation bots (testing save from storage)
+    new_narrator = Narrator(llm, memory_buffer=narrator.memory.buffer)
+    first_character.green_room(
+        llm=llm, memory_buffer=first_character._memory.buffer)
+    print('AI changed\n-----------')
+
+    response = await new_narrator.interact(first_character, choice)
     print(response['exposition'])
     print(response['choices'])
     print('-----------')
 
-    response = await narrator.travel(player_name, first_character, third_location)
+    response = await new_narrator.travel(player_name, first_character, third_location)
     print(response['exposition'])
     print(response['choices'])
     print('-----------')

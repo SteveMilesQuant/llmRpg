@@ -93,8 +93,12 @@ class Character(CharacterResponse):
 
         await session.refresh(self._db_obj, ['location', 'story'])
 
-    def green_room(self, llm: Optional[OpenAI] = None):
-        self._memory = ConversationSummaryMemory(llm=llm)
+    def green_room(self, llm: Optional[OpenAI] = None, memory_buffer: Optional[ConversationSummaryMemory] = None):
+        if memory_buffer is not None:
+            self._memory = ConversationSummaryMemory(
+                llm=llm, buffer=memory_buffer)
+        else:
+            self._memory = ConversationSummaryMemory(llm=llm)
 
         character_template = CHARACTER_TEMPLATE.format(
             input='{input}',
