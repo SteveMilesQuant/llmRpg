@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { axiosInstance } from "../services/api-client";
 import { create } from "zustand";
+import { useQueryClient } from "@tanstack/react-query";
+import { CACHE_KEY_ADVENTURES } from "./useAdventure";
 
 interface SessionStore {
   inProgress: boolean;
@@ -19,6 +21,7 @@ const useSessionStore = create<SessionStore>((set) => ({
 const useSession = (onSuccess?: () => void) => {
   const { inProgress, expiration, start, stop } = useSessionStore();
   const [isChecking, setIsChecking] = useState(true);
+  const queryClient = useQueryClient();
 
   // Check to see if we're already signed in
   useEffect(() => {
@@ -58,6 +61,10 @@ const useSession = (onSuccess?: () => void) => {
     axiosInstance.delete("/stop").then(() => {
       localStorage.removeItem("sessionToken");
       axiosInstance.defaults.headers.common = {};
+      queryClient.invalidateQueries({
+        queryKey: CACHE_KEY_ADVENTURES,
+        exact: false,
+      });
       stop();
     });
   };

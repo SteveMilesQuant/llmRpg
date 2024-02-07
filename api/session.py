@@ -58,8 +58,11 @@ class Session(SessionResponse):
             for choice in current_choices:
                 db_choice = ChoiceDb(session_id=self.id, choice=choice)
                 db_session.add(db_choice)
+            self.current_choices = current_choices
         if current_character_id is not None:
-            self._db_obj.currenct_character_id = current_character_id
+            self.current_character_id = current_character_id
+            self._db_obj.current_character_id = current_character_id
         if current_narration is not None:
+            self.current_narration = current_narration
             self._db_obj.current_narration = current_narration
         await db_session.commit()

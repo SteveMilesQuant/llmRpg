@@ -47,7 +47,7 @@ const CharacterFormBody = ({
             isOpen={errors.location_id ? true : false}
           >
             <Select {...register("location_id")}>
-              <option value="">Select location</option>{" "}
+              <option value="">Select location</option>
               {locations?.map((location) => (
                 <option key={location.id} value={location.id}>
                   {location.name}

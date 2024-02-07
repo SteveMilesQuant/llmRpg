@@ -12,6 +12,7 @@ from db import init_db, close_db
 from datamodels import Object, StoryData, StoryResponse, LocationData, LocationResponse, CharacterData, CharacterResponse, SessionResponse, ChoiceData
 from user import User
 from session import Session
+from narrator import Narrator
 from story import Story, all_stories
 from location import Location
 from character import Character
@@ -512,7 +513,30 @@ async def post_simulate(request: Request, user_choice: ChoiceData):
         if session is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail=f"Session not found. Start a new session.")
-        print(user_choice)
+
+        story = Story(id=session.story_id)
+        await story.create(db_session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={session.story_id} does not exist")
+
+        character = Character(id=session.current_character_id)
+        await character.create(db_session)
+
+        location = Location(_db_obj=character._db_obj.location)
+        await location.create(db_session)
+
+        if session.current_narration == "" and len(session.current_choices) == 1 and session.current_choices[0] == 'BEGIN':
+            narrator = Narrator(llm=app.llm)
+            narrator_response = await narrator.embark("Steve", story, location, character)
+            await session.update_current_status(
+                db_session,
+                current_narration=narrator_response['exposition'],
+                current_choices=narrator_response['choices']
+            )
+        else:
+            # Reinitialize narrator and character with stored-away memory
+            pass
         return session
 
 

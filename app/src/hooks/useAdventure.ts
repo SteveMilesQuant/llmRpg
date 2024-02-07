@@ -2,7 +2,7 @@ import ms from "ms";
 import APIClient from "../services/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-const CACHE_KEY_ADVENTURES = ["adventures"];
+export const CACHE_KEY_ADVENTURES = ["adventures"];
 
 interface Adventure {
   id: number;

@@ -47,10 +47,7 @@ class Narrator:
             memory=self.memory
         )
 
-    async def embark(self, player_name: str, story: Story):
-        location = story._db_obj.starting_location
-        character = location._db_obj.starting_character
-
+    async def embark(self, player_name: str, story: Story, location: Location, character: Character):
         response = await self.expositioner.ainvoke({
             "input": f'My name is {player_name}. I am just starting this story as a traveler from outside the realm and I know nothing about this land. Summarize the following setting to me.\n\nSETTING: {story.setting}'
         })
@@ -145,7 +142,7 @@ async def main():
 
     player_name = 'Steve'
 
-    response = await narrator.embark(player_name, story)
+    response = await narrator.embark(player_name, story, first_location, first_character)
     print(response['exposition'] + '\n\n')
     print(response['choices'])
     print('-----------')
