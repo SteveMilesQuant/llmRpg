@@ -46,6 +46,7 @@ class SessionResponse(SessionData):
 
 
 class ChoiceData(BaseModel):
+    player_name: Optional[str] = None
     choice: Optional[str] = None
 
 

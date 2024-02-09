@@ -6,11 +6,13 @@ export const CACHE_KEY_ADVENTURES = ["adventures"];
 
 interface Adventure {
   id: number;
+  story_id: number;
   current_narration: string;
   current_choices: string[];
 }
 
 interface Choice {
+  player_name: string;
   choice: string;
 }
 

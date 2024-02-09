@@ -513,7 +513,6 @@ async def post_simulate(request: Request, user_choice: ChoiceData):
         if session is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail=f"Session not found. Start a new session.")
-        session.player_name = 'Steve'
 
         story = Story(id=session.story_id)
         await story.create(db_session)
@@ -528,6 +527,7 @@ async def post_simulate(request: Request, user_choice: ChoiceData):
         await location.create(db_session)
 
         if session.current_narration == "" and len(session.current_choices) == 1 and session.current_choices[0] == 'BEGIN':
+            session.player_name = user_choice.player_name
             narrator = Narrator(llm=app.llm)
             character.green_room(llm=app.llm)
             narrator_response = await narrator.embark(session.player_name, story, location, character)
