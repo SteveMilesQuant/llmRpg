@@ -550,7 +550,8 @@ async def post_interact(request: Request, user_choice: ChoiceData):
             current_narration=narrator_response['exposition'],
             current_choices=narrator_response['choices']
         )
-        await session.add_character_recent_history(db_session, character.id, character._last_interaction)
+        if character._last_interaction is not None:
+            await session.add_character_recent_history(db_session, character.id, character._last_interaction)
         await session.update_character_memory(db_session, character.id, character._memory.buffer)
 
         return session
