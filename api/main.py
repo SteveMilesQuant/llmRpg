@@ -506,7 +506,7 @@ async def get_simulate(request: Request):
 
 # Public route, but session required
 @api_router.post("/interact", response_model=SessionResponse)
-async def post_simulate(request: Request, user_choice: ChoiceData):
+async def post_interact(request: Request, user_choice: ChoiceData):
     '''Make a single interaction in the adventure.'''
     async with app.db_sessionmaker() as db_session:
         session = await get_session(request, db_session)
@@ -547,6 +547,62 @@ async def post_simulate(request: Request, user_choice: ChoiceData):
             current_choices=narrator_response['choices']
         )
         await session.update_character_memory(db_session, character.id, character._memory.buffer)
+
+        return session
+
+
+# Public route, but session required
+@api_router.post("/travel", response_model=SessionResponse)
+async def post_interact(request: Request, user_choice: ChoiceData):
+    '''Travel to a new location.'''
+    async with app.db_sessionmaker() as db_session:
+        session = await get_session(request, db_session)
+        if session is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Session not found. Start a new session.")
+
+        story = Story(id=session.story_id)
+        await story.create(db_session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={session.story_id} does not exist")
+
+        if user_choice.location_id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Location id={user_choice.location_id} does not exist")
+        new_location = Location(id=user_choice.location_id)
+        await new_location.create(db_session)
+        if new_location.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Location id={user_choice.location_id} does not exist")
+
+        await story.locations(db_session)
+        if new_location._db_obj not in story._db_obj.locations:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Location id={new_location.id} is not within story with story id={session.story_id}")
+
+        previous_character = Character(id=session.current_character_id)
+        await previous_character.create(db_session)
+
+        first_time_visiting = (
+            session.locations_visited.get(new_location.id) is None)
+
+        narrator = Narrator(
+            llm=app.llm, memory_buffer=session.narrator_memory)
+        previous_character.green_room(
+            llm=app.llm, memory_buffer=session.character_memories.get(previous_character.id))
+        narrator_response = await narrator.travel(session.player_name, previous_character, new_location, first_time_visiting)
+
+        session.narrator_memory = narrator.memory.buffer
+        await session.update_basic(db_session)
+        await session.add_location(new_location.id)
+        await session.update_current_status(
+            db_session,
+            current_character_id=new_location.starting_character_id,
+            current_narration=narrator_response['exposition'],
+            current_choices=narrator_response['choices']
+        )
+        await session.update_character_memory(db_session, previous_character.id, previous_character._memory.buffer)
 
         return session
 

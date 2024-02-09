@@ -35,6 +35,7 @@ class SessionData(BaseModel):
     '''Session data'''
     expiration: Optional[datetime] = None
     story_id: Optional[int] = None
+    player_name: Optional[str] = None
 
 
 class SessionResponse(SessionData):
@@ -48,6 +49,7 @@ class SessionResponse(SessionData):
 class ChoiceData(BaseModel):
     player_name: Optional[str] = None
     choice: Optional[str] = None
+    location_id: Optional[int] = None
 
 
 class StoryData(BaseModel):

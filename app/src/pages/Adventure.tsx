@@ -1,30 +1,31 @@
-import { Box, Spinner, Input, Stack, CardBody, Card } from "@chakra-ui/react";
-import { useAdventure, useAddInteraction } from "../hooks/useAdventure";
-import BodyContainer from "../components/BodyContainer";
-import CardContainer from "../components/CardContainer";
+import { Input, Stack, CardBody, Card, Box, Spinner } from "@chakra-ui/react";
+import {
+  useAddInteraction,
+  useAdventure,
+  useTravel,
+} from "../hooks/useAdventure";
 import { useState } from "react";
-import PageHeader from "../components/PageHeader";
-import { useStory } from "../stories";
+import ChoicesCards from "../components/ChoicesCards";
+import TravelMenu from "../components/TravelMenu";
+import AdventureTitle from "../components/AdventureTitle";
 
 const Adventure = () => {
   const [playerName, setPlayerName] = useState("");
   const { data: adventure } = useAdventure();
   const addInteraction = useAddInteraction();
-  const { data: story } = useStory(adventure?.story_id);
+  const travel = useTravel();
 
   if (!adventure) return null;
-  if (addInteraction.isPending)
+  if (addInteraction.isPending || travel.isPending)
     return (
-      <BodyContainer>
-        <Box width="100%">
-          <Spinner marginX="auto" size="xl" />
-        </Box>
-      </BodyContainer>
+      <Box width="100%">
+        <Spinner marginX="auto" size="xl" />
+      </Box>
     );
 
   return (
     <Stack spacing={5} marginX="auto">
-      <PageHeader hideUnderline={true}>{story?.title}</PageHeader>
+      <AdventureTitle story_id={adventure.story_id} />
       {adventure.current_narration === "" && (
         <Input
           type="text"
@@ -39,16 +40,14 @@ const Adventure = () => {
           </CardBody>
         </Card>
       )}
-      {adventure.current_choices.map((choice) => (
-        <CardContainer
-          onClick={() => {
-            addInteraction.mutate({ player_name: playerName, choice: choice });
-          }}
-          key={choice}
-        >
-          {choice}
-        </CardContainer>
-      ))}
+      <ChoicesCards
+        playerName={playerName}
+        choices={adventure.current_choices}
+        addInteraction={addInteraction}
+      />
+      {adventure.current_narration !== "" && (
+        <TravelMenu story_id={adventure.story_id} travel={travel} />
+      )}
     </Stack>
   );
 };

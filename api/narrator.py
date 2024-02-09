@@ -78,7 +78,7 @@ class Narrator:
         choices = await character.offer(self.memory.buffer)
         return {"exposition": response['response'], "choices": choices}
 
-    async def travel(self, player_name: str, previous_character: Character, new_location: Location):
+    async def travel(self, player_name: str, previous_character: Character, new_location: Location, first_time_visiting: bool = True):
         previous_location = previous_character._db_obj.location
         new_character = new_location._db_obj.starting_character
 
@@ -94,10 +94,13 @@ class Narrator:
         })
         travel_expo = response['response']
 
-        response = await self.expositioner.ainvoke({
-            "input": f'I prepare to interact with {new_character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{new_character.name}: {new_character.public_description}'
-        })
-        character_expo = response['response']
+        if first_time_visiting:
+            response = await self.expositioner.ainvoke({
+                "input": f'I prepare to interact with {new_character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{new_character.name}: {new_character.public_description}'
+            })
+            character_expo = response['response']
+        else:
+            character_expo = ""
 
         choices = [
             f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to help people."''',

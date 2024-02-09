@@ -6,7 +6,6 @@ from db import CharacterMemoryDb, LocationsVisitedDb, SessionDb, ChoiceDb
 
 class Session(SessionResponse):
     _db_obj: Optional[SessionDb] = PrivateAttr()
-    player_name: Optional[str] = None
     narrator_memory: Optional[str] = None
     character_memories: Dict[int, str] = {}
     character_recent_histories: Dict[int, List[str]] = {}
@@ -43,7 +42,7 @@ class Session(SessionResponse):
         self.character_memories = {
             m.character_id: m.memory_buffer for m in self._db_obj.character_memories}
         self.locations_visited = {
-            location_id for location_id in self._db_obj.locations_visited}
+            location_id: True for location_id in self._db_obj.locations_visited}
 
     async def update_basic(self, db_session: Any):
         for key, value in SessionData():
