@@ -31,14 +31,39 @@ class SessionDb(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     expiration: Mapped[datetime] = mapped_column(nullable=True)
     story_id: Mapped[int] = mapped_column(ForeignKey('story.id'))
+    player_name: Mapped[str] = mapped_column(Text, nullable=True)
     current_character_id: Mapped[int] = mapped_column(
         ForeignKey('character.id'), nullable=True)
     current_narration: Mapped[str] = mapped_column(Text, nullable=True)
+    narrator_memory: Mapped[str] = mapped_column(Text, nullable=True)
 
     story: Mapped['StoryDb'] = relationship(
         lazy='raise', foreign_keys=[story_id])
     current_choices: Mapped[List['ChoiceDb']] = relationship(
         lazy='raise', cascade='all, delete')
+    character_memories: Mapped[List['CharacterMemoryDb']] = relationship(
+        lazy='raise', cascade='all, delete')
+    locations_visited: Mapped[List['LocationsVisitedDb']] = relationship(
+        lazy='raise', cascade='all, delete')
+
+
+class LocationsVisitedDb(Base):
+    __tablename__ = 'locations_visited'
+
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey('session.id'), primary_key=True)
+    location_id: Mapped[int] = mapped_column(
+        ForeignKey('location.id'), primary_key=True)
+
+
+class CharacterMemoryDb(Base):
+    __tablename__ = 'character_memory'
+
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey('session.id'), primary_key=True)
+    character_id: Mapped[int] = mapped_column(
+        ForeignKey('character.id'), primary_key=True)
+    memory_buffer: Mapped[str] = mapped_column(Text)
 
 
 class ChoiceDb(Base):

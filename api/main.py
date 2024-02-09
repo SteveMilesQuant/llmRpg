@@ -176,7 +176,7 @@ async def session_start_post(request: Request, story_id: int):
         session_token, token_expiration = user_id_to_auth_token(
             app, session.id)
         session.expiration = token_expiration
-        await session.update(db_session)
+        await session.update_basic(db_session)
         return {"token": session_token, "expiration": token_expiration}
 
 
@@ -192,7 +192,7 @@ async def session_refresh_put(request: Request):
             app, session.id)
 
         session.expiration = token_expiration
-        await session.update(db_session)
+        await session.update_basic(db_session)
 
         return {"token": session_token, "expiration": token_expiration}
 
@@ -513,6 +513,7 @@ async def post_simulate(request: Request, user_choice: ChoiceData):
         if session is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail=f"Session not found. Start a new session.")
+        session.player_name = 'Steve'
 
         story = Story(id=session.story_id)
         await story.create(db_session)
@@ -528,15 +529,25 @@ async def post_simulate(request: Request, user_choice: ChoiceData):
 
         if session.current_narration == "" and len(session.current_choices) == 1 and session.current_choices[0] == 'BEGIN':
             narrator = Narrator(llm=app.llm)
-            narrator_response = await narrator.embark("Steve", story, location, character)
-            await session.update_current_status(
-                db_session,
-                current_narration=narrator_response['exposition'],
-                current_choices=narrator_response['choices']
-            )
+            character.green_room(llm=app.llm)
+            narrator_response = await narrator.embark(session.player_name, story, location, character)
+            await session.add_location(location.id)
         else:
-            # Reinitialize narrator and character with stored-away memory
-            pass
+            narrator = Narrator(
+                llm=app.llm, memory_buffer=session.narrator_memory)
+            character.green_room(
+                llm=app.llm, memory_buffer=session.character_memories.get(character.id))
+            narrator_response = await narrator.interact(character, user_choice.choice)
+
+        session.narrator_memory = narrator.memory.buffer
+        await session.update_basic(db_session)
+        await session.update_current_status(
+            db_session,
+            current_narration=narrator_response['exposition'],
+            current_choices=narrator_response['choices']
+        )
+        await session.update_character_memory(db_session, character.id, character._memory.buffer)
+
         return session
 
 

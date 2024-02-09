@@ -16,7 +16,7 @@ const StoryForm = ({ story }: Props) => {
   const storyForm = useStoryForm(story);
   const deleteStory = useDeleteStory({
     onDelete: () => {
-      navigate("/stories");
+      navigate("/design");
     },
   });
 

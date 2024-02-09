@@ -53,10 +53,8 @@ class Story(StoryResponse):
         await session.commit()
 
     async def remove_location(self, session: Any, location: Any):
-        await session.refresh(self._db_obj, ['locations'])
-        self._db_obj.locations.remove(location._db_obj)
-        await session.commit()
         await location.delete(session)
+        await session.refresh(self._db_obj, ['locations'])
 
     async def locations(self, session: Any) -> List[LocationDb]:
         await session.refresh(self._db_obj, ['locations'])
@@ -71,10 +69,8 @@ class Story(StoryResponse):
         await session.commit()
 
     async def remove_character(self, session: Any, character: Any):
-        await session.refresh(self._db_obj, ['characters'])
-        self._db_obj.characters.remove(character._db_obj)
-        await session.commit()
         await character.delete(session)
+        await session.refresh(self._db_obj, ['characters'])
 
     async def characters(self, session: Any) -> List[CharacterDb]:
         await session.refresh(self._db_obj, ['characters'])
@@ -91,5 +87,5 @@ async def all_stories(session: Any, is_published: bool):
     for db_story in result.scalars():
         story = Story(db_obj=db_story)
         await story.create(session)
-        stories.append(story.dict(include=StoryResponse().dict()))
+        stories.append(story.model_dump(include=StoryResponse().model_dump()))
     return stories

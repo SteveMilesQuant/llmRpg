@@ -111,7 +111,11 @@ class Narrator:
 
 async def main():
     llm = OpenAI(
-        temperature=1, openai_api_key=os.environ.get('OPENAPI_API_KEY'), max_tokens=1024)
+        temperature=1,
+        openai_api_key=os.environ.get('OPENAPI_API_KEY'),
+        max_tokens=1024,
+        model_name="gpt-3.5-turbo-instruct"
+    )
     story = Story(**SAMPLE_STORY.model_dump())
     locations = SAMPLE_LOCATIONS
     characters = SAMPLE_CHARACTERS
