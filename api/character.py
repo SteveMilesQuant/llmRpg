@@ -70,6 +70,7 @@ class Character(CharacterResponse):
         super().__init__(**data)
         self._db_obj = db_obj
         self._interactions = []
+        self._last_interaction = None
 
     async def create(self, session: Optional[Any]):
         if self._db_obj is None and self.id is not None:
@@ -93,12 +94,13 @@ class Character(CharacterResponse):
 
         await session.refresh(self._db_obj, ['location', 'story'])
 
-    def green_room(self, llm: Optional[OpenAI] = None, memory_buffer: Optional[ConversationSummaryMemory] = None):
+    def green_room(self, llm: Optional[OpenAI] = None, memory_buffer: Optional[ConversationSummaryMemory] = None, recent_history: Optional[List[str]] = None):
         if memory_buffer is not None:
             self._memory = ConversationSummaryMemory(
                 llm=llm, buffer=memory_buffer)
         else:
             self._memory = ConversationSummaryMemory(llm=llm)
+        self._interactions = recent_history or []
 
         character_template = CHARACTER_TEMPLATE.format(
             input='{input}',
@@ -176,8 +178,5 @@ class Character(CharacterResponse):
             })
             offer_response = response['response']
             choices = literal_eval(offer_response)
-
-        self._interactions.append(self._last_interaction)
-        self._last_interaction = None
 
         return choices

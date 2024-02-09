@@ -536,7 +536,11 @@ async def post_interact(request: Request, user_choice: ChoiceData):
             narrator = Narrator(
                 llm=app.llm, memory_buffer=session.narrator_memory)
             character.green_room(
-                llm=app.llm, memory_buffer=session.character_memories.get(character.id))
+                llm=app.llm,
+                memory_buffer=session.character_memories.get(character.id),
+                recent_history=session.character_recent_histories.get(
+                    character.id)
+            )
             narrator_response = await narrator.interact(character, user_choice.choice)
 
         session.narrator_memory = narrator.memory.buffer
@@ -546,6 +550,7 @@ async def post_interact(request: Request, user_choice: ChoiceData):
             current_narration=narrator_response['exposition'],
             current_choices=narrator_response['choices']
         )
+        await session.add_character_recent_history(db_session, character.id, character._last_interaction)
         await session.update_character_memory(db_session, character.id, character._memory.buffer)
 
         return session
@@ -590,7 +595,12 @@ async def post_interact(request: Request, user_choice: ChoiceData):
         narrator = Narrator(
             llm=app.llm, memory_buffer=session.narrator_memory)
         previous_character.green_room(
-            llm=app.llm, memory_buffer=session.character_memories.get(previous_character.id))
+            llm=app.llm,
+            memory_buffer=session.character_memories.get(
+                previous_character.id),
+            recent_history=session.character_recent_histories.get(
+                previous_character.id)
+        )
         narrator_response = await narrator.travel(session.player_name, previous_character, new_location, first_time_visiting)
 
         session.narrator_memory = narrator.memory.buffer
@@ -602,6 +612,7 @@ async def post_interact(request: Request, user_choice: ChoiceData):
             current_narration=narrator_response['exposition'],
             current_choices=narrator_response['choices']
         )
+        await session.add_character_recent_history(db_session, previous_character.id, previous_character._last_interaction)
         await session.update_character_memory(db_session, previous_character.id, previous_character._memory.buffer)
 
         return session

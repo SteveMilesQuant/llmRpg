@@ -1,7 +1,9 @@
 from pydantic import PrivateAttr
 from typing import Optional, Any, List, Dict
 from datamodels import SessionData, SessionResponse
-from db import CharacterMemoryDb, LocationsVisitedDb, SessionDb, ChoiceDb
+from db import CharacterMemoryDb, CharacterRecentHistoryDb, LocationsVisitedDb, SessionDb, ChoiceDb
+
+CHARACTER_RECENT_HISTORY_LIMIT = 3
 
 
 class Session(SessionResponse):
@@ -36,13 +38,21 @@ class Session(SessionResponse):
                 if key not in ['current_choices', 'character_memories', 'locations_visited']:
                     setattr(self, key, getattr(self._db_obj, key))
 
-        await db_session.refresh(self._db_obj, ['current_choices', 'character_memories', 'locations_visited'])
+        await db_session.refresh(self._db_obj, ['current_choices', 'character_memories', 'locations_visited', 'character_recent_histories'])
         self.current_choices = [
             choice.choice for choice in self._db_obj.current_choices or []]
         self.character_memories = {
             m.character_id: m.memory_buffer for m in self._db_obj.character_memories}
         self.locations_visited = {
             location_id: True for location_id in self._db_obj.locations_visited}
+        self.character_recent_histories = {}
+        for db_history in self._db_obj.character_recent_histories:
+            hist_list = self.character_recent_histories.get(
+                db_history.character_id)
+            if hist_list is None:
+                hist_list = []
+                self.character_recent_histories[db_history.character_id] = hist_list
+            hist_list.append(db_history.record)
 
     async def update_basic(self, db_session: Any):
         for key, value in SessionData():
@@ -85,6 +95,33 @@ class Session(SessionResponse):
                     char_memory_db.memory_buffer = character_memory
                     break
         self.character_memories[character_id] = character_memory
+        await db_session.commit()
+
+    async def add_character_recent_history(self, db_session: Any, character_id: Optional[int] = None, history_record: str = ""):
+        if character_id is None:
+            return
+        await db_session.refresh(self._db_obj, ['character_recent_histories'])
+        hist_list = self.character_recent_histories.get(character_id)
+        if hist_list is None:
+            hist_list = []
+            self.character_recent_histories[character_id] = hist_list
+        next_index = len(hist_list)
+        if next_index < CHARACTER_RECENT_HISTORY_LIMIT:
+            hist_list.append(history_record)
+            hist_record_db = CharacterRecentHistoryDb(
+                session_id=self.id,
+                character_id=character_id,
+                index=next_index,
+                record=history_record
+            )
+            db_session.add(hist_record_db)
+            self._db_obj.character_recent_histories.append(hist_record_db)
+        else:
+            hist_list.pop(0)
+            hist_list.append(history_record)
+            for hist_record_db in self._db_obj.character_recent_histories:
+                if hist_record_db.session_id == self.id and hist_record_db.character_id == character_id:
+                    hist_record_db.record = hist_list[hist_record_db.index]
         await db_session.commit()
 
     async def update_current_status(self, db_session: Any,

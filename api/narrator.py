@@ -159,6 +159,8 @@ async def main():
     print('-----------')
 
     response = await narrator.interact(first_character, choice)
+    first_character._interactions.append(first_character._last_interaction)
+    first_character._last_interaction = None
     print(response['exposition'])
     print(response['choices'])
     print('-----------')
@@ -170,10 +172,15 @@ async def main():
     # Change all conversation bots (testing save from storage)
     new_narrator = Narrator(llm, memory_buffer=narrator.memory.buffer)
     first_character.green_room(
-        llm=llm, memory_buffer=first_character._memory.buffer)
+        llm=llm,
+        memory_buffer=first_character._memory.buffer,
+        recent_history=first_character._interactions
+    )
     print('AI changed\n-----------')
 
     response = await new_narrator.interact(first_character, choice)
+    first_character._interactions.append(first_character._last_interaction)
+    first_character._last_interaction = None
     print(response['exposition'])
     print(response['choices'])
     print('-----------')

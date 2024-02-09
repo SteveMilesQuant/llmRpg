@@ -43,6 +43,8 @@ class SessionDb(Base):
         lazy='raise', cascade='all, delete')
     character_memories: Mapped[List['CharacterMemoryDb']] = relationship(
         lazy='raise', cascade='all, delete')
+    character_recent_histories: Mapped[List['CharacterRecentHistoryDb']] = relationship(
+        lazy='raise', cascade='all, delete')
     locations_visited: Mapped[List['LocationsVisitedDb']] = relationship(
         lazy='raise', cascade='all, delete')
 
@@ -64,6 +66,17 @@ class CharacterMemoryDb(Base):
     character_id: Mapped[int] = mapped_column(
         ForeignKey('character.id'), primary_key=True)
     memory_buffer: Mapped[str] = mapped_column(Text)
+
+
+class CharacterRecentHistoryDb(Base):
+    __tablename__ = 'character_recent_history'
+
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey('session.id'), primary_key=True)
+    character_id: Mapped[int] = mapped_column(
+        ForeignKey('character.id'), primary_key=True)
+    index: Mapped[int] = mapped_column(primary_key=True)
+    record: Mapped[str] = mapped_column(Text)
 
 
 class ChoiceDb(Base):
