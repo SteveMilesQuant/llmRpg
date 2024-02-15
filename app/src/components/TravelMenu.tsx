@@ -17,7 +17,9 @@ const TravelMenu = ({ story_id, travel }: Props) => {
 
   return (
     <Menu>
-      <MenuButton as={Button}>Travel</MenuButton>
+      <MenuButton as={Button} textColor="brand.100">
+        Travel
+      </MenuButton>
       <MenuList>
         {locations?.map((location) => (
           <MenuItem
