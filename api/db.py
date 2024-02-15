@@ -35,6 +35,7 @@ class SessionDb(Base):
     current_character_id: Mapped[int] = mapped_column(
         ForeignKey('character.id'), nullable=True)
     current_narration: Mapped[str] = mapped_column(Text, nullable=True)
+    current_image: Mapped[str] = mapped_column(Text, nullable=True)
     narrator_memory: Mapped[str] = mapped_column(Text, nullable=True)
 
     story: Mapped['StoryDb'] = relationship(
@@ -44,6 +45,8 @@ class SessionDb(Base):
     character_memories: Mapped[List['CharacterMemoryDb']] = relationship(
         lazy='raise', cascade='all, delete')
     character_recent_histories: Mapped[List['CharacterRecentHistoryDb']] = relationship(
+        lazy='raise', cascade='all, delete')
+    character_base_images: Mapped[List['CharacterBaseImagesDb']] = relationship(
         lazy='raise', cascade='all, delete')
     locations_visited: Mapped[List['LocationsVisitedDb']] = relationship(
         lazy='raise', cascade='all, delete')
@@ -77,6 +80,16 @@ class CharacterRecentHistoryDb(Base):
         ForeignKey('character.id'), primary_key=True)
     index: Mapped[int] = mapped_column(primary_key=True)
     record: Mapped[str] = mapped_column(Text)
+
+
+class CharacterBaseImagesDb(Base):
+    __tablename__ = 'character_base_image'
+
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey('session.id'), primary_key=True)
+    character_id: Mapped[int] = mapped_column(
+        ForeignKey('character.id'), primary_key=True)
+    base_image_url: Mapped[str] = mapped_column(Text)
 
 
 class ChoiceDb(Base):

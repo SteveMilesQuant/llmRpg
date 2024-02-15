@@ -12,6 +12,7 @@ import { FaArrowRightFromBracket } from "react-icons/fa6";
 interface Props {
   playerName: string;
   choices: string[];
+  allowCustomResponse?: boolean;
   addInteraction: UseMutationResult<
     Adventure,
     Error,
@@ -20,7 +21,12 @@ interface Props {
   >;
 }
 
-const ChoicesCards = ({ playerName, choices, addInteraction }: Props) => {
+const ChoicesCards = ({
+  playerName,
+  choices,
+  addInteraction,
+  allowCustomResponse,
+}: Props) => {
   const [customResponse, setCustomResponse] = useState("");
 
   return (
@@ -38,31 +44,33 @@ const ChoicesCards = ({ playerName, choices, addInteraction }: Props) => {
           {choice}
         </CardContainer>
       ))}
-      <Box>
-        <Input
-          placeholder="Custom response..."
-          onChange={(event) => setCustomResponse(event.target.value)}
-        />
-        <IconButton
-          icon={<FaArrowRightFromBracket />}
-          aria-label="Submit custom response"
-          position="absolute"
-          right={5}
-          marginRight={3}
-          bgColor="white"
-          borderColor="gray.200"
-          borderStyle="solid"
-          borderWidth={1}
-          borderRadius={6}
-          zIndex={1}
-          onClick={() =>
-            addInteraction.mutate({
-              player_name: playerName,
-              choice: customResponse,
-            } as Choice)
-          }
-        />
-      </Box>
+      {allowCustomResponse && (
+        <Box>
+          <Input
+            placeholder="Custom response..."
+            onChange={(event) => setCustomResponse(event.target.value)}
+          />
+          <IconButton
+            icon={<FaArrowRightFromBracket />}
+            aria-label="Submit custom response"
+            position="absolute"
+            right={5}
+            marginRight={3}
+            bgColor="white"
+            borderColor="gray.200"
+            borderStyle="solid"
+            borderWidth={1}
+            borderRadius={6}
+            zIndex={1}
+            onClick={() =>
+              addInteraction.mutate({
+                player_name: playerName,
+                choice: customResponse,
+              } as Choice)
+            }
+          />
+        </Box>
+      )}
     </>
   );
 };

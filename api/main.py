@@ -539,16 +539,22 @@ async def post_interact(request: Request, user_choice: ChoiceData):
                 llm=app.llm,
                 memory_buffer=session.character_memories.get(character.id),
                 recent_history=session.character_recent_histories.get(
-                    character.id)
+                    character.id),
+                base_image=session.character_base_images.get(character.id)
             )
             narrator_response = await narrator.interact(character, user_choice.choice)
+
+        current_image = await narrator.generate_image(story, character, narrator_response['exposition'])
+        if session.character_base_images.get(character.id) is None:
+            await session.update_character_base_image(db_session, character.id, current_image)
 
         session.narrator_memory = narrator.memory.buffer
         await session.update_basic(db_session)
         await session.update_current_status(
             db_session,
             current_narration=narrator_response['exposition'],
-            current_choices=narrator_response['choices']
+            current_choices=narrator_response['choices'],
+            current_image=current_image
         )
         if character._last_interaction is not None:
             await session.add_character_recent_history(db_session, character.id, character._last_interaction)

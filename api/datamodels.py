@@ -44,6 +44,7 @@ class SessionResponse(SessionData):
     current_character_id: Optional[int] = None
     current_choices: List[str] = []
     current_narration: Optional[str] = ""
+    current_image: Optional[str] = ""
 
 
 class ChoiceData(BaseModel):

@@ -65,6 +65,7 @@ class Character(CharacterResponse):
     _db_obj: Optional[CharacterDb] = PrivateAttr()
     _interactions: Optional[List[str]] = PrivateAttr()
     _last_interaction: Optional[str] = PrivateAttr()
+    _base_image: Optional[str] = PrivateAttr()
 
     def __init__(self, db_obj: Optional[CharacterDb] = None, **data):
         super().__init__(**data)
@@ -94,13 +95,14 @@ class Character(CharacterResponse):
 
         await session.refresh(self._db_obj, ['location', 'story'])
 
-    def green_room(self, llm: Optional[OpenAI] = None, memory_buffer: Optional[ConversationSummaryMemory] = None, recent_history: Optional[List[str]] = None):
+    def green_room(self, llm: Optional[OpenAI] = None, memory_buffer: Optional[ConversationSummaryMemory] = None, recent_history: Optional[List[str]] = None, base_image: Optional[str] = None):
         if memory_buffer is not None:
             self._memory = ConversationSummaryMemory(
                 llm=llm, buffer=memory_buffer)
         else:
             self._memory = ConversationSummaryMemory(llm=llm)
         self._interactions = recent_history or []
+        self._base_image = base_image
 
         character_template = CHARACTER_TEMPLATE.format(
             input='{input}',
