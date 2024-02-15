@@ -102,10 +102,13 @@ class Narrator:
         else:
             character_expo = ""
 
-        choices = [
-            f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to help people."''',
-            f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to make money."'''
-        ]
+        if first_time_visiting:
+            choices = [
+                f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to help people."''',
+                f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to make money."'''
+            ]
+        else:
+            choices = await new_character.offer(self.memory.buffer)
 
         exposition = goodbye_expo + '\n\n' + travel_expo + '\n\n' + character_expo
 

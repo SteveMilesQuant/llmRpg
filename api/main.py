@@ -559,7 +559,7 @@ async def post_interact(request: Request, user_choice: ChoiceData):
 
 # Public route, but session required
 @api_router.post("/travel", response_model=SessionResponse)
-async def post_interact(request: Request, user_choice: ChoiceData):
+async def post_travel(request: Request, user_choice: ChoiceData):
     '''Travel to a new location.'''
     async with app.db_sessionmaker() as db_session:
         session = await get_session(request, db_session)
