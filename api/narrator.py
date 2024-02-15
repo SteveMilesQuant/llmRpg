@@ -5,7 +5,6 @@ from langchain.chains import ConversationChain
 from langchain.prompts.prompt import PromptTemplate
 from langchain.memory import ConversationSummaryMemory
 from langchain_openai import OpenAI
-from langchain.agents import AgentExecutor, create_react_agent, load_tools
 from datamodels import Object, SAMPLE_CHARACTERS, SAMPLE_LOCATIONS, SAMPLE_STORY
 from story import Story
 from location import Location
@@ -26,26 +25,6 @@ New input:
 
 Response:
 '''
-
-IMAGE_GENERATOR_PROMPT_TEMPLATE = ''''Generate a 240px by 240px image based on the provided description. Use an animated art style, as would be fitting for a children's story. Ensure any character faces have detail and are not blurry and do not look like monsters. Ensure the image is 240px by 240px. You have access to the following tools:
-
-{tools}
-
-Use the following format:
-
-Description: the input description of the image you must generate
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the url for the image you have generated
-
-Begin!
-
-Description: {input}
-Thought:{agent_scratchpad}'''
 
 
 class Narrator:
@@ -133,24 +112,6 @@ class Narrator:
         exposition = goodbye_expo + '\n\n' + travel_expo + '\n\n' + character_expo
 
         return {"exposition": exposition, "choices": choices}
-
-    async def generate_image(self, story: Story, character: Character, recent_exposition: str) -> str:
-        if character._base_image:
-            # TODO: instead generate a new image based off of that one
-            return character._base_image
-        else:
-            tools = load_tools(["dalle-image-generator"])
-            prompt = PromptTemplate(
-                input_variables=['input', 'tools',
-                                 'tool_names', 'agent_scratchpad'],
-                template=IMAGE_GENERATOR_PROMPT_TEMPLATE
-            )
-            agent = create_react_agent(self.llm, tools, prompt)
-            agent_executor = AgentExecutor(agent=agent, tools=tools)
-            response = await agent_executor.ainvoke({
-                "input": character.public_description
-            })
-            return response['output']
 
 
 async def main():

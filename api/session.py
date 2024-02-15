@@ -1,6 +1,6 @@
 from pydantic import PrivateAttr
 from typing import Optional, Any, List, Dict
-from datamodels import SessionData, SessionResponse
+from datamodels import CharacterBaseImage, SessionData, SessionResponse
 from db import CharacterBaseImagesDb, CharacterMemoryDb, CharacterRecentHistoryDb, LocationsVisitedDb, SessionDb, ChoiceDb
 
 CHARACTER_RECENT_HISTORY_LIMIT = 3
@@ -11,7 +11,7 @@ class Session(SessionResponse):
     narrator_memory: Optional[str] = None
     character_memories: Dict[int, str] = {}
     character_recent_histories: Dict[int, List[str]] = {}
-    character_base_images: Dict[int, str] = {}
+    character_base_images: Dict[int, CharacterBaseImage] = {}
     locations_visited: Dict[int, bool] = {}
 
     def __init__(self, db_obj: Optional[SessionDb] = None, **data):
@@ -47,7 +47,7 @@ class Session(SessionResponse):
         self.locations_visited = {
             location_id: True for location_id in self._db_obj.locations_visited}
         self.character_base_images = {
-            i.character_id: i.base_image_url for i in self._db_obj.character_base_images}
+            i.character_id: CharacterBaseImage(id=i.character_id, url=i.base_image_url) for i in self._db_obj.character_base_images}
         self.character_recent_histories = {}
         for db_history in self._db_obj.character_recent_histories:
             hist_list = self.character_recent_histories.get(
@@ -144,14 +144,14 @@ class Session(SessionResponse):
                 if char_base_img_db.character_id == character_id:
                     char_base_img_db.base_image_url = base_image
                     break
-        self.character_base_images[character_id] = base_image
+        self.character_base_images[character_id] = CharacterBaseImage(
+            id=character_id, url=base_image)
         await db_session.commit()
 
     async def update_current_status(self, db_session: Any,
                                     current_character_id: Optional[int] = None,
                                     current_narration: Optional[str] = None,
-                                    current_choices: Optional[List[str]] = None,
-                                    current_image: Optional[str] = None):
+                                    current_choices: Optional[List[str]] = None):
         if current_choices is not None:
             await db_session.refresh(self._db_obj, ['current_choices'])
             for db_choice in self._db_obj.current_choices or []:
@@ -167,7 +167,4 @@ class Session(SessionResponse):
         if current_narration is not None:
             self.current_narration = current_narration
             self._db_obj.current_narration = current_narration
-        if current_image is not None:
-            self.current_image = current_image
-            self._db_obj.current_image = current_image
         await db_session.commit()

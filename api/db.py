@@ -35,7 +35,6 @@ class SessionDb(Base):
     current_character_id: Mapped[int] = mapped_column(
         ForeignKey('character.id'), nullable=True)
     current_narration: Mapped[str] = mapped_column(Text, nullable=True)
-    current_image: Mapped[str] = mapped_column(Text, nullable=True)
     narrator_memory: Mapped[str] = mapped_column(Text, nullable=True)
 
     story: Mapped['StoryDb'] = relationship(

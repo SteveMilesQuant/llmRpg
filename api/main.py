@@ -9,7 +9,9 @@ from oauthlib.oauth2 import WebApplicationClient
 from langchain_openai import OpenAI
 from authentication import user_id_to_auth_token, auth_token_to_user_id
 from db import init_db, close_db
-from datamodels import Object, StoryData, StoryResponse, LocationData, LocationResponse, CharacterData, CharacterResponse, SessionResponse, ChoiceData
+from datamodels import Object, SessionResponse, ChoiceData
+from datamodels import StoryData, StoryResponse, LocationData, LocationResponse
+from datamodels import CharacterData, CharacterResponse, CharacterBaseImage
 from user import User
 from session import Session
 from narrator import Narrator
@@ -492,6 +494,7 @@ async def delete_character(request: Request, story_id: int, character_id: int):
 # STORY SIMULATION
 ###############################################################################
 
+
 # Public route, but session required
 @api_router.get("/adventure", response_model=SessionResponse)
 async def get_simulate(request: Request):
@@ -544,17 +547,12 @@ async def post_interact(request: Request, user_choice: ChoiceData):
             )
             narrator_response = await narrator.interact(character, user_choice.choice)
 
-        current_image = await narrator.generate_image(story, character, narrator_response['exposition'])
-        if session.character_base_images.get(character.id) is None:
-            await session.update_character_base_image(db_session, character.id, current_image)
-
         session.narrator_memory = narrator.memory.buffer
         await session.update_basic(db_session)
         await session.update_current_status(
             db_session,
             current_narration=narrator_response['exposition'],
-            current_choices=narrator_response['choices'],
-            current_image=current_image
+            current_choices=narrator_response['choices']
         )
         if character._last_interaction is not None:
             await session.add_character_recent_history(db_session, character.id, character._last_interaction)
@@ -623,6 +621,38 @@ async def post_travel(request: Request, user_choice: ChoiceData):
         await session.update_character_memory(db_session, previous_character.id, previous_character._memory.buffer)
 
         return session
+
+
+# Public route, but session required
+@api_router.get("/stories/{story_id}/characters/{character_id}/base_image", response_model=CharacterBaseImage)
+async def get_character_base_image(request: Request, story_id: int, character_id: int):
+    async with app.db_sessionmaker() as db_session:
+        session = await get_session(request, db_session)
+        if session is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Session not found. Start a new session.")
+
+        story = Story(id=session.story_id)
+        await story.create(db_session)
+        if story.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Story id={session.story_id} does not exist")
+
+        character = Character(id=character_id)
+        await character.create(db_session)
+        if character.id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Character id={character_id} does not exist")
+        if character._db_obj not in await story.characters(db_session):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Character id={character_id} does not exist for story id={story_id}")
+
+        image_url = session.character_base_images.get(character.id)
+        if image_url is None:
+            character.green_room(llm=app.llm)
+            image_url = await character.generate_base_image()
+            await session.update_character_base_image(db_session, character.id, image_url)
+        return image_url
 
 
 ###############################################################################

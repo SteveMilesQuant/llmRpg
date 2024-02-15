@@ -9,7 +9,7 @@ export interface Adventure {
   story_id: number;
   current_narration: string;
   current_choices: string[];
-  current_image: string;
+  current_character_id: number;
 }
 
 export interface Choice {

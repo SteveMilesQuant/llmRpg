@@ -76,3 +76,30 @@ export const useCharacter = (storyId?: number, characterId?: number) => {
   const characterHooks = useCharacterHooks(storyId);
   return characterHooks.useData(characterId);
 };
+
+interface CharacterBaseImage {
+  id: number;
+  url: string;
+}
+
+const useCharacterImageHooks = (storyId: number, characterId: number) =>
+  new APIHooks<CharacterBaseImage, undefined>(
+    new APIClient<CharacterBaseImage, undefined>(
+      `/stories/${storyId}/characters/${characterId}/base_image`
+    ),
+    [
+      ...CACHE_KEY_STORIES,
+      storyId.toString(),
+      ...CACHE_KEY_CHARACTERS,
+      characterId.toString(),
+      "BASE_IMAGE",
+    ],
+    ms("5m")
+  );
+
+export const useCharacterBaseImage = (storyId: number, characterId: number) => {
+  if (!storyId || !characterId)
+    return {} as UseQueryResult<CharacterBaseImage, Error>;
+  const imageHooks = useCharacterImageHooks(storyId, characterId);
+  return imageHooks.useData();
+};
