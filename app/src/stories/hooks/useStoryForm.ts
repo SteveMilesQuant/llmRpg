@@ -21,12 +21,13 @@ const useStoryForm = (story?: Story) => {
     handleSubmit: handleFormSubmit,
     formState: { errors, isValid },
     reset,
+    getValues,
   } = useForm<FormData>({
     resolver: yupResolver(storySchema),
     defaultValues: useMemo(() => {
       return {
         ...story,
-      };
+      } as FormData;
     }, [story]),
   });
 
@@ -66,6 +67,7 @@ const useStoryForm = (story?: Story) => {
     handleClose,
     handleSubmit,
     isValid,
+    getValues,
   };
 };
 

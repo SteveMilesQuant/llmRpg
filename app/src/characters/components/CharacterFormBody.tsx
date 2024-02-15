@@ -46,7 +46,7 @@ const CharacterFormBody = ({
             label={errors.location_id?.message}
             isOpen={errors.location_id ? true : false}
           >
-            <Select {...register("location_id")}>
+            <Select {...register("location_id")} disabled={isReadOnly}>
               <option value="">Select location</option>
               {locations?.map((location) => (
                 <option key={location.id} value={location.id}>

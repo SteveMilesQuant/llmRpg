@@ -6,7 +6,11 @@ import {
   Stack,
   Textarea,
 } from "@chakra-ui/react";
-import { FieldErrors, UseFormRegister } from "react-hook-form";
+import {
+  FieldErrors,
+  UseFormGetValues,
+  UseFormRegister,
+} from "react-hook-form";
 import { FormData } from "../hooks/useStoryForm";
 import InputError from "../../components/InputError";
 import { useLocations } from "../../locations";
@@ -14,6 +18,7 @@ import { useLocations } from "../../locations";
 interface Props {
   register: UseFormRegister<FormData>;
   errors: FieldErrors<FormData>;
+  getValues: UseFormGetValues<FormData>;
   isReadOnly?: boolean;
   showLocation?: boolean;
   storyId?: number;
@@ -22,6 +27,7 @@ interface Props {
 const StoryFormBody = ({
   register,
   errors,
+  getValues,
   isReadOnly,
   showLocation,
   storyId,
@@ -61,8 +67,12 @@ const StoryFormBody = ({
             label={errors.starting_location_id?.message}
             isOpen={errors.starting_location_id ? true : false}
           >
-            <Select {...register("starting_location_id")}>
-              <option value="">Select location</option>{" "}
+            <Select
+              {...register("starting_location_id")}
+              disabled={isReadOnly}
+              value={isReadOnly ? getValues("starting_location_id") : undefined}
+            >
+              <option value="">Select location</option>
               {locations?.map((location) => (
                 <option key={location.id} value={location.id}>
                   {location.name}

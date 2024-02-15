@@ -46,7 +46,10 @@ const LocationFormBody = ({
             label={errors.starting_character_id?.message}
             isOpen={errors.starting_character_id ? true : false}
           >
-            <Select {...register("starting_character_id")}>
+            <Select
+              {...register("starting_character_id")}
+              disabled={isReadOnly}
+            >
               <option value="">Select character</option>{" "}
               {characters?.map((character) => (
                 <option key={character.id} value={character.id}>
