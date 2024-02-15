@@ -1,4 +1,12 @@
-import { Input, Stack, CardBody, Card, Box, Spinner } from "@chakra-ui/react";
+import {
+  Input,
+  Stack,
+  CardBody,
+  Card,
+  Box,
+  Spinner,
+  Text,
+} from "@chakra-ui/react";
 import {
   useAddInteraction,
   useAdventure,
@@ -35,8 +43,10 @@ const Adventure = () => {
       )}
       {adventure.current_narration !== "" && (
         <Card>
-          <CardBody textColor="brand.100" bgColor="brand.200" fontSize={18}>
-            {adventure.current_narration}
+          <CardBody bgColor="brand.200">
+            <Text textColor="brand.100" fontSize={18} whiteSpace="pre-wrap">
+              {adventure.current_narration}
+            </Text>
           </CardBody>
         </Card>
       )}
