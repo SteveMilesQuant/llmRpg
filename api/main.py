@@ -647,12 +647,12 @@ async def get_character_base_image(request: Request, story_id: int, character_id
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail=f"Character id={character_id} does not exist for story id={story_id}")
 
-        image_url = session.character_base_images.get(character.id)
-        if image_url is None:
+        image = session.character_base_images.get(character.id)
+        if image is None:
             character.green_room(llm=app.llm)
             image_url = await character.generate_base_image()
-            await session.update_character_base_image(db_session, character.id, image_url)
-        return image_url
+            image = await session.update_character_base_image(db_session, character.id, image_url)
+        return image
 
 
 ###############################################################################

@@ -7,7 +7,9 @@ from langchain.memory import ConversationSummaryMemory
 from langchain_openai import OpenAI
 from datamodels import CharacterResponse
 from db import CharacterDb
-from langchain.agents import AgentExecutor, create_react_agent, load_tools
+import aiohttp
+import os
+from fastapi import HTTPException, status
 
 
 CHARACTER_TEMPLATE = '''You are a character in an interactive story. Your name is {character_name}. You live in {location_name}. The input you receive is from a human Player. Your response should be the things you say and do in reply to the Players's input. Put the things you say in double quotes.
@@ -57,25 +59,7 @@ Previous conversation history:
 {history}
 ------------------------------'''
 
-IMAGE_GENERATOR_PROMPT_TEMPLATE = ''''Generate a 240px by 240px image based on the provided description. Use an animated art style, as would be fitting for a children's story. Ensure any character faces have detail and are not blurry and do not look like monsters. Ensure the image is 240px by 240px. You have access to the following tools:
-
-{tools}
-
-Use the following format:
-
-Description: the input description of the image you must generate
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the url for the image you have generated
-
-Begin!
-
-Description: {input}
-Thought:{agent_scratchpad}'''
+IMAGE_GENERATOR_PROMPT_TEMPLATE = ''''Using a mythic fantasy art style, an image for the character described as follows. {image_desc}'''
 
 
 class Character(CharacterResponse):
@@ -215,15 +199,24 @@ class Character(CharacterResponse):
             # TODO: instead generate a new image based off of that one
             return self._base_image
         else:
-            tools = load_tools(["dalle-image-generator"])
-            prompt = PromptTemplate(
-                input_variables=['input', 'tools',
-                                 'tool_names', 'agent_scratchpad'],
-                template=IMAGE_GENERATOR_PROMPT_TEMPLATE
-            )
-            agent = create_react_agent(self._llm, tools, prompt)
-            agent_executor = AgentExecutor(agent=agent, tools=tools)
-            response = await agent_executor.ainvoke({
-                "input": self.public_description
-            })
-            return response['output']
+            async with aiohttp.ClientSession() as http_session:
+                response = await http_session.post(
+                    url="https://api.openai.com/v1/images/generations",
+                    json={
+                        "model": "dall-e-3",
+                        "prompt": IMAGE_GENERATOR_PROMPT_TEMPLATE.format(image_desc=self.public_description),
+                        "n": 1,
+                        "size": "1024x1024",
+                        "quality": "hd"
+                    },
+                    headers={
+                        'content-type': 'application/json',
+                        'authorization': f'Bearer {os.environ.get("OPENAI_API_KEY")}'
+                    }
+                )
+                json = await response.json()
+                error = json.get('error')
+                if error:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                        detail=f"Error reported from open ai: {error['message']}")
+                return json['data'][0]['url']

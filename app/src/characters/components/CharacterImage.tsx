@@ -23,12 +23,22 @@ const CharacterImage = ({ storyId, characterId }: Props) => {
   if (!baseImage) return null;
 
   return (
-    <Box marginX="auto">
+    <Box
+      marginX="auto"
+      borderRadius={15}
+      paddingTop={4}
+      paddingRight={5}
+      paddingBottom={5}
+      paddingLeft={4}
+      bgColor="rgba(255,255,255,0.8)"
+    >
       <Image
         src={baseImage.url}
         alt={"AI generated image of the current character"}
         width="240px"
         height="240px"
+        borderRadius={15}
+        boxShadow="10px 10px 10px rgba(0, 0, 0, 0.8)"
       />
     </Box>
   );

@@ -42,15 +42,17 @@ const Adventure = () => {
         />
       )}
       {!isPending && adventure.current_narration === "" && (
-        <Input
-          type="text"
-          placeholder="Enter your name..."
-          onChange={(event) => setPlayerName(event.target.value)}
-        />
+        <Box bgColor="white" opacity="0.8">
+          <Input
+            type="text"
+            placeholder="Enter your name..."
+            onChange={(event) => setPlayerName(event.target.value)}
+          />
+        </Box>
       )}
       {!isPending && adventure.current_narration !== "" && (
-        <Card>
-          <CardBody bgColor="brand.200">
+        <Card opacity="0.8">
+          <CardBody bgColor="brand.200" opacity="0.9" borderRadius={15}>
             <Text textColor="brand.100" fontSize={18} whiteSpace="pre-wrap">
               {adventure.current_narration}
             </Text>

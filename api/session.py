@@ -147,6 +147,7 @@ class Session(SessionResponse):
         self.character_base_images[character_id] = CharacterBaseImage(
             id=character_id, url=base_image)
         await db_session.commit()
+        return self.character_base_images[character_id]
 
     async def update_current_status(self, db_session: Any,
                                     current_character_id: Optional[int] = None,

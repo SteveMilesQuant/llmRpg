@@ -49,6 +49,8 @@ const ChoicesCards = ({
           <Input
             placeholder="Custom response..."
             onChange={(event) => setCustomResponse(event.target.value)}
+            bgColor="white"
+            opacity="0.8"
           />
           <IconButton
             icon={<FaArrowRightFromBracket />}
@@ -57,6 +59,7 @@ const ChoicesCards = ({
             right={5}
             marginRight={3}
             bgColor="white"
+            opacity="0.8"
             borderColor="gray.200"
             borderStyle="solid"
             borderWidth={1}

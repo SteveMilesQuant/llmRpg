@@ -31,7 +31,9 @@ const StoryCard = ({ story, onDelete }: Props) => {
     >
       <HStack justifyContent="space-between">
         <HStack alignItems="end">
-          <Heading fontSize="2xl">{story.title}</Heading>
+          <Heading fontSize="2xl" textColor="brand.300">
+            {story.title}
+          </Heading>
         </HStack>
         {pageContext === PageContextType.design && onDelete && (
           <DeleteButton onConfirm={onDelete}>{story.title}</DeleteButton>

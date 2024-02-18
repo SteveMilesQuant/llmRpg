@@ -50,17 +50,17 @@ class Narrator:
         response = await self.expositioner.ainvoke({
             "input": f'My name is {player_name}. I am just starting this story as a traveler from outside the realm and I know nothing about this land. Summarize the following setting to me.\n\nSETTING: {story.setting}'
         })
-        land_expo = response['response']
+        land_expo = response['response'].strip()
 
         response = await self.expositioner.ainvoke({
             "input": f'I arrive at {location.name}. Summarize that location to me according to the following description.\n\n\{location.name}: {location.description}'
         })
-        location_expo = response['response']
+        location_expo = response['response'].strip()
 
         response = await self.expositioner.ainvoke({
             "input": f'I prepare to interact with {character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{character.name}: {character.public_description}'
         })
-        character_expo = response['response']
+        character_expo = response['response'].strip()
 
         choices = [
             f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to help people."''',
@@ -75,7 +75,7 @@ class Narrator:
             "input": f'The following interaction just occurred. Please describe it to me. Quote {character.name}\'s response into your description. \n\nI said to {character.name}: {interaction_desc}\n\n{character.name}\'s response to me: {character_response}'
         })
         choices = await character.offer(self.memory.buffer)
-        return {"exposition": response['response'], "choices": choices}
+        return {"exposition": response['response'].strip(), "choices": choices}
 
     async def travel(self, player_name: str, previous_character: Character, new_location: Location, first_time_visiting: bool = True):
         previous_location = previous_character._db_obj.location
@@ -86,18 +86,18 @@ class Narrator:
         response = await self.expositioner.ainvoke({
             "input": f'The following interaction just occurred. Please describe it to me. Quote {previous_character.name}\'s response into your description. \n\nI say to {previous_character.name}: {goodbye}\n\n{previous_character.name}\'s response to me: {goodbye_response}'
         })
-        goodbye_expo = response['response']
+        goodbye_expo = response['response'].strip()
 
         response = await self.expositioner.ainvoke({
             "input": f'Summarize traveling along the road from {previous_location.name} to {new_location.name}. The new location is described below.\n\n{new_location.name}:{new_location.description}'
         })
-        travel_expo = response['response']
+        travel_expo = response['response'].strip()
 
         if first_time_visiting:
             response = await self.expositioner.ainvoke({
                 "input": f'I prepare to interact with {new_character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{new_character.name}: {new_character.public_description}'
             })
-            character_expo = response['response']
+            character_expo = response['response'].strip()
         else:
             character_expo = ""
 

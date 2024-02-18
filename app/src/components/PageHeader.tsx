@@ -1,4 +1,4 @@
-import { Divider, HStack, Heading } from "@chakra-ui/react";
+import { Divider, HStack, Heading, Box } from "@chakra-ui/react";
 import { ReactNode } from "react";
 
 interface Props {
@@ -17,7 +17,11 @@ const PageHeader = ({
   return (
     <>
       <HStack justifyContent="space-between" marginBottom={5}>
-        <Heading fontSize={fontSize || "3xl"}>{children}</Heading>
+        <Box borderRadius={15} padding={3} bgColor="rgba(255,255,255,0.8)">
+          <Heading fontSize={fontSize || "3xl"} textColor="brand.300">
+            {children}
+          </Heading>
+        </Box>
         {rightButton}
       </HStack>
       {!hideUnderline && <Divider orientation="horizontal" marginY={5} />}
