@@ -16,8 +16,20 @@ const CharacterImage = ({ storyId, characterId }: Props) => {
   if (error) throw error;
   if (isLoading)
     return (
-      <Box width="fit-content" margin="auto">
-        <Spinner marginX="auto" size="xl" />
+      <Box
+        marginX="auto"
+        borderRadius={15}
+        paddingTop={4}
+        paddingRight={5}
+        paddingBottom={5}
+        paddingLeft={4}
+        bgColor="rgba(255,255,255,0.8)"
+      >
+        <Box width="240px" height="240px">
+          <Box width="fit-content" margin="auto">
+            <Spinner size="xl" />
+          </Box>
+        </Box>
       </Box>
     );
   if (!baseImage) return null;
