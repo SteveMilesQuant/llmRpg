@@ -1,12 +1,4 @@
-import {
-  Input,
-  Stack,
-  CardBody,
-  Card,
-  Spinner,
-  Text,
-  Box,
-} from "@chakra-ui/react";
+import { Input, Stack, CardBody, Card, Text, Box } from "@chakra-ui/react";
 import {
   useAddInteraction,
   useAdventure,
