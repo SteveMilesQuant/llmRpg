@@ -17,6 +17,7 @@ import ChoicesCards from "../components/ChoicesCards";
 import TravelMenu from "../components/TravelMenu";
 import AdventureTitle from "../components/AdventureTitle";
 import CharacterImage from "../characters/components/CharacterImage";
+import AdventureSkeleton from "../components/AdventureSkeleton";
 
 const Adventure = () => {
   const [playerName, setPlayerName] = useState("");
@@ -41,6 +42,7 @@ const Adventure = () => {
           characterId={adventure.current_character_id}
         />
       )}
+      {isPending && <AdventureSkeleton />}
       {!isPending && adventure.current_narration === "" && (
         <Box bgColor="white" opacity="0.8">
           <Input
@@ -69,11 +71,6 @@ const Adventure = () => {
       )}
       {!isPending && adventure.current_narration !== "" && (
         <TravelMenu story_id={adventure.story_id} travel={travel} />
-      )}
-      {isPending && (
-        <Box width="fit-content" margin="auto">
-          <Spinner marginX="auto" size="xl" />
-        </Box>
       )}
     </Stack>
   );
