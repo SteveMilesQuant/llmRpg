@@ -1,4 +1,4 @@
-import { Box, Image } from "@chakra-ui/react";
+import { Box, Image, Spinner } from "@chakra-ui/react";
 import { useCharacterBaseImage } from "../hooks/useCharacters";
 
 interface Props {
@@ -14,7 +14,13 @@ const CharacterImage = ({ storyId, characterId }: Props) => {
   } = useCharacterBaseImage(storyId, characterId);
 
   if (error) throw error;
-  if (isLoading || !baseImage) return null;
+  if (isLoading)
+    return (
+      <Box width="fit-content" margin="auto">
+        <Spinner marginX="auto" size="xl" />
+      </Box>
+    );
+  if (!baseImage) return null;
 
   return (
     <Box marginX="auto">

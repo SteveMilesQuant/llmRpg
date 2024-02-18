@@ -1,4 +1,12 @@
-import { Input, Stack, CardBody, Card, Spinner, Text } from "@chakra-ui/react";
+import {
+  Input,
+  Stack,
+  CardBody,
+  Card,
+  Spinner,
+  Text,
+  Box,
+} from "@chakra-ui/react";
 import {
   useAddInteraction,
   useAdventure,
@@ -60,7 +68,11 @@ const Adventure = () => {
       {!isPending && adventure.current_narration !== "" && (
         <TravelMenu story_id={adventure.story_id} travel={travel} />
       )}
-      {isPending && <Spinner marginX="auto" size="xl" />}
+      {isPending && (
+        <Box width="fit-content" margin="auto">
+          <Spinner marginX="auto" size="xl" />
+        </Box>
+      )}
     </Stack>
   );
 };
