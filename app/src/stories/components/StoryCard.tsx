@@ -31,7 +31,11 @@ const StoryCard = ({ story, onDelete }: Props) => {
     >
       <HStack justifyContent="space-between">
         <HStack alignItems="end">
-          <Heading fontSize="2xl" textColor="brand.300">
+          <Heading
+            fontSize="2xl"
+            textColor="brand.300"
+            fontFamily="Papyrus, fantasy"
+          >
             {story.title}
           </Heading>
         </HStack>
