@@ -1,13 +1,22 @@
+import os
+import asyncio
+import aiohttp
 from pydantic import PrivateAttr
 from typing import Optional, Any, List, Dict
-from datamodels import CharacterBaseImage, SessionData, SessionResponse
+from datamodels import SAMPLE_CHARACTERS, CharacterBaseImage, Object, SessionData, SessionResponse, SAMPLE_STORY, SAMPLE_LOCATIONS
 from db import CharacterBaseImagesDb, CharacterMemoryDb, CharacterRecentHistoryDb, LocationsVisitedDb, SessionDb, ChoiceDb
+from narrator import Narrator
+from story import Story
+from location import Location
+from character import Character
+from quest import QuestTracker
 
 CHARACTER_RECENT_HISTORY_LIMIT = 3
 
 
 class Session(SessionResponse):
     _db_obj: Optional[SessionDb] = PrivateAttr()
+    player_name: Optional[str] = None
     narrator_memory: Optional[str] = None
     character_memories: Dict[int, str] = {}
     character_recent_histories: Dict[int, List[str]] = {}
@@ -35,7 +44,7 @@ class Session(SessionResponse):
             self.id = self._db_obj.id
         else:
             # Otherwise, update attributes from fetched object
-            for key, value in SessionResponse():
+            for key, _ in SessionResponse():
                 if key not in ['current_choices', 'character_memories', 'locations_visited', 'character_base_images']:
                     setattr(self, key, getattr(self._db_obj, key))
 
@@ -169,3 +178,125 @@ class Session(SessionResponse):
             self.current_narration = current_narration
             self._db_obj.current_narration = current_narration
         await db_session.commit()
+
+
+async def main():
+    # Options for this run
+    verbose = True
+
+    # HTTP configuration
+    chat_url = "https://api.openai.com/v1/chat/completions"
+    chat_model = "gpt-3.5-turbo"
+    headers = {
+        'content-type': 'application/json',
+        'authorization': f'Bearer {os.environ.get("OPENAI_API_KEY")}'
+    }
+
+    # Initialize sample story
+    player_name = 'Steve'
+    session = Session(player_name=player_name)
+    story = Story(**SAMPLE_STORY.model_dump())
+    travel_to_location_id: Optional[int] = story.starting_location_id
+    narrator = Narrator(
+        chat_url=chat_url,
+        chat_model=chat_model,
+        player_name=player_name,
+        story=story,
+        memory="",
+        verbose=verbose
+    )
+    tracker = QuestTracker(
+        chat_url=chat_url, chat_model=chat_model, verbose=verbose)
+    locations = [Location(**l.model_dump()) for l in SAMPLE_LOCATIONS]
+    characters = [Character(**c.model_dump()) for c in SAMPLE_CHARACTERS]
+    current_location = None
+
+    # Fake out database object information
+    for character in characters:
+        character.green_room(
+            chat_url=chat_url,
+            chat_model=chat_model,
+            verbose=verbose,
+            interactions_limit=2
+        )
+        character._db_obj = Object()
+        character._db_obj.story = story
+        for location in locations:
+            if location.id == character.location_id:
+                character._db_obj.location = location
+                break
+
+    # Run the story simulation
+    continueStory = True
+    async with aiohttp.ClientSession(headers=headers) as openai_http_session:
+        while (continueStory):
+            if travel_to_location_id is not None:
+                narrator_expo = ""
+
+                # Update local tracking for character and location
+                last_location = current_location
+                for character in characters:
+                    if character.location_id == travel_to_location_id:
+                        current_character = character
+                        break
+                current_location = current_character._db_obj.location
+
+                # Travel to a new location
+                if session.current_character_id is None:
+                    # Entirely new adventure
+                    expo = await narrator.embark(openai_http_session)
+                    narrator_expo = narrator_expo + expo + '\n\n'
+
+                else:
+                    # Just a new location
+                    expo = await narrator.travel(openai_http_session, last_location, current_location)
+                    narrator_expo = narrator_expo + expo + '\n\n'
+                session.current_character_id = current_character.id
+
+                # Describe that location and character, if it is our first time here
+                if not session.locations_visited.get(current_location.id):
+                    expo = await narrator.arrive(openai_http_session, current_location)
+                    narrator_expo = narrator_expo + expo + '\n\n'
+
+                    expo = await narrator.meet(openai_http_session, current_character)
+                    narrator_expo = narrator_expo + expo + '\n\n'
+
+                    session.locations_visited[current_location.id] = True
+                else:
+                    expo = await narrator.remeet(openai_http_session, current_character)
+                    narrator_expo = narrator_expo + expo + '\n\n'
+
+                # Finally, update narrator memory and print result
+                narrator_expo = narrator_expo.strip()
+                await narrator.update_memory(openai_http_session, f'Narrator: {narrator_expo}')
+
+                travel_to_location_id = None
+            else:
+                character_response = await current_character.interact(openai_http_session, filter(lambda q: q.watcher == current_character.name, tracker.quests), user_input)
+                new_interaction = f'From {player_name} to {current_character.name}: """{user_input}"""\n\nFrom {current_character.name} to {player_name}: """{character_response}"""'
+                await narrator.update_memory(openai_http_session, new_interaction)
+
+                # Update quests
+                await tracker.update_quests(
+                    openai_http_session,
+                    player_name=player_name,
+                    character_name=current_character.name,
+                    interactions=current_character._interactions
+                )
+
+            print('')
+            user_input = input('Your choice: ')
+            if user_input == "Q":
+                continueStory = False
+            if user_input == "T":
+                user_prompt = 'Travel to location: '
+                while travel_to_location_id is None:
+                    location_name = input(user_prompt)
+                    for location in locations:
+                        if location.name.upper() == location_name.upper():
+                            travel_to_location_id = location.id
+                            break
+                    user_prompt = f'Location not found ({location_name}). Try again: '
+
+if __name__ == "__main__":
+    asyncio.run(main())

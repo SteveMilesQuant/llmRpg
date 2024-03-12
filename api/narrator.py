@@ -1,196 +1,171 @@
 import os
+import aiohttp
 import asyncio
-from typing import Optional
-from langchain.chains import ConversationChain
-from langchain.prompts.prompt import PromptTemplate
-from langchain.memory import ConversationSummaryMemory
-from langchain_openai import OpenAI
-from datamodels import Object, SAMPLE_CHARACTERS, SAMPLE_LOCATIONS, SAMPLE_STORY
+from pydantic import BaseModel
 from story import Story
 from location import Location
 from character import Character
+from datamodels import SAMPLE_CHARACTERS, SAMPLE_LOCATIONS, SAMPLE_STORY
 
 
-NARRATOR_TEMPLATE = '''You are the narrator of an interactive story. The input you receive is from a Player playing as the main character of this story. Your response should describe what the Player sees, hears, and perhaps says (if provided by the Player), and should use descriptive or creative language, but should generally be brief (2-5 sentences).
+NARRATOR_DESCRIPTION = '''You are the narrator of an interactive story. The input you receive is from a Player playing as the main character of this story. Your response should describe what the Player sees, hears, and perhaps says (if provided by the Player), and should use descriptive or creative language, but should generally be brief (2-5 sentences).'''
 
-Previous conversation history:
-------------------------------
-{history}
-------------------------------
+EMBARK_TEMPLATE = '''I am just starting this story as a traveler from outside the realm and I know nothing about this land. Summarize the following setting to me.
 
-New input:
-------------------------------
-{input}
-------------------------------
+Story setting: {story_setting}'''
 
-Response:
-'''
+TRAVEL_TEMPLATE = '''I'm traveling from location {from_location_name} to location {to_location_name}. Summarize my travel between these locations.
+
+{from_location_name} description: {from_location_desc}
+
+{to_location_name} description: {to_location_desc}'''
+
+ARRIVE_TEMPLATE = '''I arrive at {location_name}, which I have not been to before. Summarize that location to me according to the following description. Do not begin your response with "As".
+
+{location_name}: {location_description}'''
+
+MEET_TEMPLATE = '''I prepare to interact with {character_name}, whom I have not met. Summarize that person to me according to the following description. Do not begin your response with "As".
+
+{character_name}: {character_description}'''
+
+REMEET_TEMPLATE = '''I prepare to interact with {character_name}, whom I have already meet. Describe how they react as I approach. Do not begin your response with "As".
+
+{character_name}'s description: {character_description}'''
+
+NARRATOR_MEMORY_DESCRIPTION = '''You summarize events and descriptions given to you into a concise account of general events. You will receive new interactions between a Human named "{player_name}" and other characters. One such character is the Narrator, who is always speaking directly to {player_name} and will refer to {player_name} as "you". Your summary should use the past tense and third person describing what {player_name} as done, seen, and said. You should ignore descriptive details and summarize into a concise account of general events.
+
+Past summary: {story_summary}'''
 
 
-class Narrator:
-    def __init__(self, llm: Optional[OpenAI] = None, memory_buffer: Optional[ConversationSummaryMemory] = None):
-        self.llm = llm
-        if memory_buffer is not None:
-            self.memory = ConversationSummaryMemory(
-                llm=llm, buffer=memory_buffer)
-        else:
-            self.memory = ConversationSummaryMemory(llm=llm)
+class Narrator(BaseModel):
+    player_name: str = None
+    story: Story = None
+    memory: str = ""
+    verbose: bool = False
+    chat_url: str = "https://api.openai.com/v1/chat/completions"
+    chat_model: str = "gpt-3.5-turbo"
 
-        prompt = PromptTemplate(
-            input_variables=['history', 'input'],
-            template=NARRATOR_TEMPLATE
-        )
-        self.expositioner = ConversationChain(
-            llm=llm,
-            prompt=prompt,
-            memory=self.memory
-        )
-
-    async def embark(self, player_name: str, story: Story, location: Location, character: Character):
-        response = await self.expositioner.ainvoke({
-            "input": f'My name is {player_name}. I am just starting this story as a traveler from outside the realm and I know nothing about this land. Summarize the following setting to me.\n\nSETTING: {story.setting}'
-        })
-        land_expo = response['response'].strip()
-
-        response = await self.expositioner.ainvoke({
-            "input": f'I arrive at {location.name}. Summarize that location to me according to the following description.\n\n\{location.name}: {location.description}'
-        })
-        location_expo = response['response'].strip()
-
-        response = await self.expositioner.ainvoke({
-            "input": f'I prepare to interact with {character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{character.name}: {character.public_description}'
-        })
-        character_expo = response['response'].strip()
-
-        choices = [
-            f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to help people."''',
-            f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to make money."'''
-        ]
-
-        return {"exposition": land_expo + '\n\n' + location_expo + '\n\n' + character_expo, "choices": choices}
-
-    async def interact(self, character: Character, interaction_desc: str):
-        character_response = await character.interact(interaction_desc)
-        response = await self.expositioner.ainvoke({
-            "input": f'The following interaction just occurred. Please describe it to me. Quote {character.name}\'s response into your description. \n\nI said to {character.name}: {interaction_desc}\n\n{character.name}\'s response to me: {character_response}'
-        })
-        choices = await character.offer(self.memory.buffer)
-        return {"exposition": response['response'].strip(), "choices": choices}
-
-    async def travel(self, player_name: str, previous_character: Character, new_location: Location, first_time_visiting: bool = True):
-        previous_location = previous_character._db_obj.location
-        new_character = new_location._db_obj.starting_character
-
-        goodbye = '''"Sorry, but I feel I must move on now. It will be quite a while before I return. Goodbye.'''
-        goodbye_response = await previous_character.interact(goodbye)
-        response = await self.expositioner.ainvoke({
-            "input": f'The following interaction just occurred. Please describe it to me. Quote {previous_character.name}\'s response into your description. \n\nI say to {previous_character.name}: {goodbye}\n\n{previous_character.name}\'s response to me: {goodbye_response}'
-        })
-        goodbye_expo = response['response'].strip()
-
-        response = await self.expositioner.ainvoke({
-            "input": f'Summarize traveling along the road from {previous_location.name} to {new_location.name}. The new location is described below.\n\n{new_location.name}:{new_location.description}'
-        })
-        travel_expo = response['response'].strip()
-
-        if first_time_visiting:
-            response = await self.expositioner.ainvoke({
-                "input": f'I prepare to interact with {new_character.name}, whom I have not met. Summarize that person to me according to the following description.\n\n\{new_character.name}: {new_character.public_description}'
+    async def _post_query(self, openai_http_session: aiohttp.ClientSession, query: str) -> str:
+        response = await openai_http_session.post(
+            url=self.chat_url,
+            json={
+                "model": self.chat_model,
+                "messages": [
+                    {"role": "system", "content": NARRATOR_DESCRIPTION},
+                    {"role": "user", "content": query}
+                ],
+                "temperature": 1
             })
-            character_expo = response['response'].strip()
-        else:
-            character_expo = ""
+        json = await response.json()
+        expo = json['choices'][0]['message']['content'].strip()
+        if self.verbose:
+            print(f'Narrator: {expo}')
+        return expo
 
-        if first_time_visiting:
-            choices = [
-                f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to help people."''',
-                f'''"Hello, my name is {player_name}. I'm just passing through this area, but I'm looking for opportunities to make money."'''
-            ]
-        else:
-            choices = await new_character.offer(self.memory.buffer)
+    async def update_memory(self, openai_http_session: aiohttp.ClientSession, new_interaction: str) -> None:
+        memory_query = NARRATOR_MEMORY_DESCRIPTION.format(
+            player_name=self.player_name,
+            story_summary=self.memory
+        )
+        response = await openai_http_session.post(
+            url=self.chat_url,
+            json={
+                "model": self.chat_model,
+                "messages": [
+                    {"role": "system", "content": memory_query},
+                    {"role": "user", "content": f'Merge this interaction into your past summary and give me a new summary. """{new_interaction}"""'}
+                ],
+                "temperature": 0
+            })
+        json = await response.json()
+        self.memory = json['choices'][0]['message']['content'].strip()
+        if self.verbose:
+            print(f'Narrator memory: {self.memory}')
 
-        exposition = goodbye_expo + '\n\n' + travel_expo + '\n\n' + character_expo
+    async def embark(self, openai_http_session: aiohttp.ClientSession) -> str:
+        new_query = EMBARK_TEMPLATE.format(
+            story_summary=self.memory,
+            story_setting=self.story.setting
+        )
+        return await self._post_query(openai_http_session, new_query)
 
-        return {"exposition": exposition, "choices": choices}
+    async def travel(self, openai_http_session: aiohttp.ClientSession, from_location: Location, to_location: Location) -> str:
+        new_query = TRAVEL_TEMPLATE.format(
+            from_location_name=from_location.name,
+            from_location_desc=from_location.description,
+            to_location_name=to_location.name,
+            to_location_desc=to_location.description
+        )
+        return await self._post_query(openai_http_session, new_query)
+
+    async def arrive(self, openai_http_session: aiohttp.ClientSession, location: Location) -> str:
+        new_query = ARRIVE_TEMPLATE.format(
+            location_name=location.name,
+            location_description=location.description
+        )
+        return await self._post_query(openai_http_session, new_query)
+
+    async def meet(self, openai_http_session: aiohttp.ClientSession, character: Character) -> str:
+        new_query = MEET_TEMPLATE.format(
+            character_name=character.name,
+            character_description=character.public_description
+        )
+        return await self._post_query(openai_http_session, new_query)
+
+    async def remeet(self, openai_http_session: aiohttp.ClientSession, character: Character) -> str:
+        new_query = REMEET_TEMPLATE.format(
+            character_name=character.name,
+            character_description=character.public_description
+        )
+        return await self._post_query(openai_http_session, new_query)
 
 
 async def main():
-    llm = OpenAI(
-        temperature=1,
-        openai_api_key=os.environ.get('OPENAPI_API_KEY'),
-        max_tokens=1024,
-        model_name="gpt-3.5-turbo-instruct"
-    )
-    story = Story(**SAMPLE_STORY.model_dump())
-    locations = SAMPLE_LOCATIONS
-    characters = SAMPLE_CHARACTERS
-    narrator = Narrator(llm=llm)
-    story._db_obj = Object()
+    verbose = True
 
-    first_location = Location(**locations[0].model_dump())
-    first_location._db_obj = Object()
+    # HTTP configuration
+    chat_url = "https://api.openai.com/v1/chat/completions"
+    chat_model = "gpt-3.5-turbo"
+    headers = {
+        'content-type': 'application/json',
+        'authorization': f'Bearer {os.environ.get("OPENAI_API_KEY")}'
+    }
 
-    third_location = Location(**locations[2].model_dump())
-    third_location._db_obj = Object()
-
-    first_character = Character(**characters[0].model_dump())
-    first_character._db_obj = Object()
-    first_character._db_obj.story = story
-    first_character._db_obj.location = first_location
-    first_character.green_room(llm=llm)
-
-    third_character = Character(**characters[2].model_dump())
-    third_character._db_obj = Object()
-    third_character._db_obj.story = story
-    third_character._db_obj.location = third_location
-    third_character.green_room(llm=llm)
-
-    story._db_obj.starting_location = first_location
-    first_location._db_obj.starting_character = first_character
-    third_location._db_obj.starting_character = third_character
-
+    # Story elements
     player_name = 'Steve'
-
-    response = await narrator.embark(player_name, story, first_location, first_character)
-    print(response['exposition'] + '\n\n')
-    print(response['choices'])
-    print('-----------')
-
-    choice = response['choices'][0]
-    print(f"My choice: {choice}")
-    print('-----------')
-
-    response = await narrator.interact(first_character, choice)
-    first_character._interactions.append(first_character._last_interaction)
-    first_character._last_interaction = None
-    print(response['exposition'])
-    print(response['choices'])
-    print('-----------')
-
-    choice = response['choices'][0]
-    print(f"My choice: {choice}")
-    print('-----------')
-
-    # Change all conversation bots (testing save from storage)
-    new_narrator = Narrator(llm, memory_buffer=narrator.memory.buffer)
-    first_character.green_room(
-        llm=llm,
-        memory_buffer=first_character._memory.buffer,
-        recent_history=first_character._interactions
+    story = Story(**SAMPLE_STORY.model_dump())
+    narrator = Narrator(
+        chat_url=chat_url,
+        chat_model=chat_model,
+        player_name=player_name,
+        story=story,
+        memory="",
+        verbose=verbose
     )
-    print('AI changed\n-----------')
+    locations = [Location(**l.model_dump()) for l in SAMPLE_LOCATIONS]
+    characters = [Character(**c.model_dump()) for c in SAMPLE_CHARACTERS]
 
-    response = await new_narrator.interact(first_character, choice)
-    first_character._interactions.append(first_character._last_interaction)
-    first_character._last_interaction = None
-    print(response['exposition'])
-    print(response['choices'])
-    print('-----------')
+    # Test arrive
+    async with aiohttp.ClientSession(headers=headers) as openai_http_session:
+        embark_expo = await narrator.embark(openai_http_session)
+        await narrator.update_memory(openai_http_session, f'Narrator: {embark_expo}')
+        print('')
 
-    response = await new_narrator.travel(player_name, first_character, third_location)
-    print(response['exposition'])
-    print(response['choices'])
-    print('-----------')
+        arrival_expo = await narrator.arrive(openai_http_session, locations[0])
+        await narrator.update_memory(openai_http_session, f'Narrator: {arrival_expo}')
+        print('')
+
+        travel_expo = await narrator.travel(openai_http_session, locations[0], locations[1])
+        await narrator.update_memory(openai_http_session, f'Narrator: {travel_expo}')
+        print('')
+
+        meet_expo = await narrator.meet(openai_http_session, characters[0])
+        await narrator.update_memory(openai_http_session, f'Narrator: {meet_expo}')
+        print('')
+
+        remeet_expo = await narrator.remeet(openai_http_session, characters[0])
+        await narrator.update_memory(openai_http_session, f'Narrator: {remeet_expo}')
+        print('')
 
 
 if __name__ == "__main__":
