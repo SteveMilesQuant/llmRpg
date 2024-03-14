@@ -2,16 +2,15 @@ import os
 import asyncio
 import aiohttp
 from pydantic import PrivateAttr
-from typing import Optional, Any, List, Dict
-from datamodels import SAMPLE_CHARACTERS, CharacterBaseImage, Object, SessionData, SessionResponse, SAMPLE_STORY, SAMPLE_LOCATIONS
-from db import LocationsVisitedDb, SessionDb, ChoiceDb
+from typing import Optional, Any, Dict
+from sqlalchemy import select
+from datamodels import SAMPLE_CHARACTERS, Object, SessionData, SessionResponse, SAMPLE_STORY, SAMPLE_LOCATIONS
+from db import CharacterSessionDb, LocationsVisitedDb, SessionDb
 from narrator import Narrator
 from story import Story
 from location import Location
 from character import Character
 from quest import QuestTracker
-
-CHARACTER_RECENT_HISTORY_LIMIT = 3
 
 
 class Session(SessionResponse):
@@ -52,48 +51,75 @@ class Session(SessionResponse):
             location_id: True for location_id in self._db_obj.locations_visited}
 
     async def update_basic(self, db_session: Any):
-        for key, value in SessionData():
+        for key, _ in SessionData():
             setattr(self._db_obj, key, getattr(self, key))
         await db_session.commit()
 
     async def delete(self, db_session: Any):
+        stmt = select(CharacterSessionDb).where(
+            CharacterSessionDb.session_id == self.id)
+        results = await db_session.execute(stmt)
+        for result in results:
+            await db_session.refresh(result, ['recent_history'])
+            await db_session.delete(result)
         await db_session.refresh(self._db_obj, ['locations_visited'])
         await db_session.delete(self._db_obj)
         await db_session.commit()
 
-    async def add_location(self, db_session: Any, location_id: Optional[int] = None):
+    async def add_location(self, db_session: Optional[Any] = None, location_id: Optional[int] = None):
         if location_id is None or self.locations_visited.get(location_id):
             return
-        await db_session.refresh(self._db_obj, ['locations_visited'])
+        if db_session:
+            await db_session.refresh(self._db_obj, ['locations_visited'])
         loc_visited_db = LocationsVisitedDb(
             session_id=self.id,
             location_id=location_id
         )
-        db_session.add(loc_visited_db)
-        self._db_obj.locations_visited.append(location_id)
         self.locations_visited[location_id] = True
-        await db_session.commit()
-
-    async def update_current_status(self, db_session: Any,
-                                    current_character_id: Optional[int] = None,
-                                    current_narration: Optional[str] = None,
-                                    current_choices: Optional[List[str]] = None):
-        if current_choices is not None:
-            await db_session.refresh(self._db_obj, ['current_choices'])
-            for db_choice in self._db_obj.current_choices or []:
-                await db_session.delete(db_choice)
+        if db_session:
+            db_session.add(loc_visited_db)
+            self._db_obj.locations_visited.append(loc_visited_db)
             await db_session.commit()
-            for choice in current_choices:
-                db_choice = ChoiceDb(session_id=self.id, choice=choice)
-                db_session.add(db_choice)
-            self.current_choices = current_choices
-        if current_character_id is not None:
-            self.current_character_id = current_character_id
-            self._db_obj.current_character_id = current_character_id
-        if current_narration is not None:
-            self.current_narration = current_narration
-            self._db_obj.current_narration = current_narration
-        await db_session.commit()
+
+    async def travel(self, openai_http_session: aiohttp.ClientSession, narrator: Narrator, last_location: Location, location: Location, db_session: Optional[Any] = None):
+        narrator_expo = ""
+        character = location._db_obj.starting_character
+
+        # Travel to a new location
+        if self.current_character_id is None:
+            # Entirely new adventure
+            expo = await narrator.embark(openai_http_session)
+            narrator_expo = narrator_expo + expo + '\n\n'
+
+        else:
+            # Just a new location
+            expo = await narrator.travel(openai_http_session, last_location, location)
+            narrator_expo = narrator_expo + expo + '\n\n'
+        self.current_character_id = character.id
+
+        # Describe that location and character, if it is our first time here
+        if not self.locations_visited.get(location.id):
+            expo = await narrator.arrive(openai_http_session, location)
+            narrator_expo = narrator_expo + expo + '\n\n'
+
+            expo = await narrator.meet(openai_http_session, character)
+            narrator_expo = narrator_expo + expo + '\n\n'
+
+            await self.add_location(db_session, location.id)
+        else:
+            expo = await narrator.remeet(openai_http_session, character)
+            narrator_expo = narrator_expo + expo + '\n\n'
+
+        # Finally, update narrator memory
+        narrator_expo = narrator_expo.strip()
+        await narrator.update_memory(openai_http_session, f'Narrator: {narrator_expo}')
+        self.narrator_memory = narrator.memory
+        if db_session:
+            self._db_obj.narrator_memory = self.narrator_memory
+            await db_session.commit()
+
+    async def interact(self, openai_http_session: aiohttp.ClientSession, db_session: Optional[Any] = None):
+        pass
 
 
 async def main():
@@ -139,6 +165,8 @@ async def main():
         for location in locations:
             if location.id == character.location_id:
                 character._db_obj.location = location
+                location._db_obj = Object()
+                location._db_obj.starting_character = character
                 break
         character._db_obj_session = Object()
         character._db_obj_session.id = 1
@@ -150,8 +178,6 @@ async def main():
     async with aiohttp.ClientSession(headers=headers) as openai_http_session:
         while (continueStory):
             if travel_to_location_id is not None:
-                narrator_expo = ""
-
                 # Update local tracking for character and location
                 last_location = current_location
                 for character in characters:
@@ -160,34 +186,7 @@ async def main():
                         break
                 current_location = current_character._db_obj.location
 
-                # Travel to a new location
-                if session.current_character_id is None:
-                    # Entirely new adventure
-                    expo = await narrator.embark(openai_http_session)
-                    narrator_expo = narrator_expo + expo + '\n\n'
-
-                else:
-                    # Just a new location
-                    expo = await narrator.travel(openai_http_session, last_location, current_location)
-                    narrator_expo = narrator_expo + expo + '\n\n'
-                session.current_character_id = current_character.id
-
-                # Describe that location and character, if it is our first time here
-                if not session.locations_visited.get(current_location.id):
-                    expo = await narrator.arrive(openai_http_session, current_location)
-                    narrator_expo = narrator_expo + expo + '\n\n'
-
-                    expo = await narrator.meet(openai_http_session, current_character)
-                    narrator_expo = narrator_expo + expo + '\n\n'
-
-                    session.locations_visited[current_location.id] = True
-                else:
-                    expo = await narrator.remeet(openai_http_session, current_character)
-                    narrator_expo = narrator_expo + expo + '\n\n'
-
-                # Finally, update narrator memory and print result
-                narrator_expo = narrator_expo.strip()
-                await narrator.update_memory(openai_http_session, f'Narrator: {narrator_expo}')
+                await session.travel(openai_http_session, narrator, last_location, current_location)
 
                 travel_to_location_id = None
             else:

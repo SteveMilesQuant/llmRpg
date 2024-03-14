@@ -8,6 +8,7 @@ from datamodels import SAMPLE_LOCATIONS, SAMPLE_STORY, CharacterData, CharacterR
 from db import CharacterDb, CharacterRecentHistoryDb, CharacterSessionDb
 from fastapi import HTTPException, status
 
+CHARACTER_RECENT_HISTORY_LIMIT = 3
 
 CHARACTER_TEMPLATE = '''You are a character in an interactive story. Your name is {character_name}. You live in {location_name} and are far too busy to leave there. The input you receive is from a human player. Your response should be the things you say and do in reply to the human player's input. Put the things you say in double quotes. If you have any open quests with the human, focus your responses on that.
 
@@ -66,7 +67,7 @@ class Character(CharacterResponse):
         self._verbose = False
         self._chat_url = None
         self._chat_model = None
-        self._recent_history_limit = 3
+        self._recent_history_limit = CHARACTER_RECENT_HISTORY_LIMIT
 
     async def create(self, db_session: Optional[Any]):
         if self._db_obj is None and self.id is not None:
