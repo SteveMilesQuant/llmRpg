@@ -2,9 +2,10 @@ import aiohttp
 import os
 import asyncio
 from pydantic import PrivateAttr
-from typing import Optional, Any, List
-from datamodels import SAMPLE_LOCATIONS, SAMPLE_STORY, CharacterResponse, SAMPLE_CHARACTERS, Object
-from db import CharacterDb
+from sqlalchemy import delete, select
+from typing import Optional, Any
+from datamodels import SAMPLE_LOCATIONS, SAMPLE_STORY, CharacterData, CharacterResponse, SAMPLE_CHARACTERS, Object
+from db import CharacterDb, CharacterRecentHistoryDb, CharacterSessionDb
 from fastapi import HTTPException, status
 
 
@@ -52,13 +53,12 @@ def interaction_to_string(user_to_character: str, character_to_user: str):
 
 class Character(CharacterResponse):
     _db_obj: Optional[CharacterDb] = PrivateAttr()
+    _db_obj_session: Optional[CharacterSessionDb] = PrivateAttr()
+
     _verbose: Optional[bool] = PrivateAttr()
     _chat_url: Optional[str] = PrivateAttr()
     _chat_model: Optional[str] = PrivateAttr()
-    _memory: Optional[str] = PrivateAttr()
-    _interactions: Optional[List[tuple[str, str]]] = PrivateAttr()
-    _interactions_limit: Optional[int] = PrivateAttr()
-    _base_image: Optional[str] = PrivateAttr()
+    _recent_history_limit: Optional[int] = PrivateAttr()
 
     def __init__(self, db_obj: Optional[CharacterDb] = None, **data):
         super().__init__(**data)
@@ -66,15 +66,12 @@ class Character(CharacterResponse):
         self._verbose = False
         self._chat_url = None
         self._chat_model = None
-        self._memory = ""
-        self._interactions = []
-        self._interactions_limit = 0
-        self._base_image = None
+        self._recent_history_limit = 3
 
-    async def create(self, session: Optional[Any]):
+    async def create(self, db_session: Optional[Any]):
         if self._db_obj is None and self.id is not None:
             # Get by ID
-            self._db_obj = await session.get(CharacterDb, [self.id])
+            self._db_obj = await db_session.get(CharacterDb, [self.id])
             if self._db_obj is None:
                 self.id = None
                 return
@@ -84,41 +81,66 @@ class Character(CharacterResponse):
             character_data = self.model_dump(
                 include=CharacterResponse().model_dump())
             self._db_obj = CharacterDb(**character_data)
-            session.add(self._db_obj)
-            await session.commit()
+            db_session.add(self._db_obj)
+            await db_session.commit()
             self.id = self._db_obj.id
         else:
             # Otherwise, update attributes from fetched object
             for key, _ in CharacterResponse():
                 setattr(self, key, getattr(self._db_obj, key))
 
-        await session.refresh(self._db_obj, ['location', 'story'])
+        await db_session.refresh(self._db_obj, ['location', 'story'])
+
+    async def update(self, db_session: Any):
+        for key, _ in CharacterData():
+            setattr(self._db_obj, key, getattr(self, key))
+        await db_session.commit()
+
+    async def delete(self, db_session: Any):
+        stmt = delete(CharacterSessionDb).where(
+            CharacterSessionDb.character_id == self.id)
+        await db_session.execute(stmt)
+        await db_session.delete(self._db_obj)
+        await db_session.commit()
 
     def green_room(self,
-                   chat_url: Optional[str] = None,
-                   chat_model: Optional[str] = None,
                    verbose: Optional[bool] = False,
-                   memory: Optional[str] = "",
-                   interactions: Optional[List[str]] = [],
-                   interactions_limit: Optional[int] = 0
-                   ) -> None:
+                   chat_url: Optional[str] = None,
+                   chat_model: Optional[str] = None) -> None:
         self._chat_url = chat_url
         self._chat_model = chat_model
         self._verbose = verbose
-        self._memory = memory
-        self._interactions = interactions or []
-        self._interactions_limit = interactions_limit
 
-    async def interact(self, openai_http_session: aiohttp.ClientSession, ongoing_quests: str, user_input: str) -> str:
+    async def prepare_session(self, db_session: Optional[Any], session_id: int):
+        self._db_obj_session = None
+
+        # Try to fetch it, if it exists
+        stmt = select(CharacterSessionDb).where(
+            CharacterSessionDb.session_id == session_id and CharacterSessionDb.character_id == self.id)
+        results = await db_session.execute(stmt)
+        result = results.first()
+        if result:
+            self._db_obj_session = result[0]
+
+        # If not found, create new
+        if self._db_obj_session is None:
+            self._db_obj_session = CharacterSessionDb(
+                session_id=session_id, character_id=self.id)
+            db_session.add(self._db_obj_session)
+            await db_session.commit()
+
+        await db_session.refresh(self._db_obj_session, ['recent_history'])
+
+    async def interact(self, openai_http_session: aiohttp.ClientSession, ongoing_quests: str, user_input: str, db_session: Optional[Any] = None) -> str:
         recent_interactions = '\n'.join(
-            [interaction_to_string(i[0], i[1]) for i in self._interactions])
+            [interaction_to_string(i.user_input, i.character_response) for i in self._db_obj_session.recent_history])
         character_description = CHARACTER_TEMPLATE.format(
             character_name=self.name,
             character_description=self.private_description,
             story_setting=self._db_obj.story.setting,
             location_name=self._db_obj.location.name,
             location_description=self._db_obj.location.description,
-            memory=self._memory,
+            memory=self._db_obj_session.summarized_memory,
             recent_interactions=recent_interactions,
             quests=ongoing_quests
         )
@@ -137,12 +159,13 @@ class Character(CharacterResponse):
         if self._verbose:
             print(f'Player: {user_input}')
             print(f'{self.name}: {character_response}')
-        await self.update_memory(openai_http_session, user_input, character_response)
+        await self.update_memory(openai_http_session, user_input, character_response, db_session)
         return character_response
 
-    async def update_memory(self, openai_http_session: aiohttp.ClientSession, user_to_character: str, character_to_user: str) -> None:
+    async def update_memory(self, openai_http_session: aiohttp.ClientSession, user_to_character: str, character_to_user: str, db_session: Optional[Any] = None) -> None:
+        # Update the summarized memory, using
         memory_description = CHARACTER_MEMORY_DESCRIPTION.format(
-            interaction_summary=self._memory
+            interaction_summary=self._db_obj_session.summarized_memory
         )
         interaction = interaction_to_string(
             user_to_character, character_to_user)
@@ -157,19 +180,43 @@ class Character(CharacterResponse):
                 "temperature": 0
             })
         json = await response.json()
-        self._memory = json['choices'][0]['message']['content'].strip()
-        self._interactions.append((user_to_character, character_to_user))
-        while len(self._interactions) > self._interactions_limit:
-            self._interactions.pop(0)
-        if self._verbose:
-            print(f'{self.name} memory: {self._memory}')
-            print(f'{self.name} interactions: {self._interactions}')
+        json_msg = json['choices'][0]['message']
+        self._db_obj_session.summarized_memory = json_msg['content'].strip()
+        if db_session:
+            await db_session.commit()
 
-    async def generate_base_image(self, openai_http_session: aiohttp.ClientSession) -> str:
-        if self._base_image:
-            # TODO: instead generate a new image based off of that one
-            return self._base_image
+        # Add the new interaction
+        new_index = max(
+            [i.sort_index for i in self._db_obj_session.recent_history], default=1)
+        new_interaction = CharacterRecentHistoryDb(
+            character_session_id=self._db_obj_session.id,
+            sort_index=new_index,
+            user_input=user_to_character,
+            character_response=character_to_user
+        )
+        if db_session:
+            await db_session.add(new_interaction)
+            await db_session.commit()
+            await db_session.refresh(self._db_obj_session, ['recent_history'])
         else:
+            self._db_obj_session.recent_history.append(new_interaction)
+
+        # Remove any old interactions that have gone past the limit
+        while len(self._db_obj_session.recent_history) > self._recent_history_limit:
+            remove_history = self._db_obj_session.recent_history.pop(0)
+            if db_session:
+                await db_session.delete(remove_history)
+
+        # Print, if verbose
+        if self._verbose:
+            print(f'{self.name} memory: {self._db_obj_session.summarized_memory}')
+            print(f'{self.name} recent history:')
+            for interaction in self._db_obj_session.recent_history:
+                print(
+                    f'\t({interaction.user_input}, {interaction.character_response})')
+
+    async def generate_base_image(self, openai_http_session: aiohttp.ClientSession, db_session: Optional[Any] = None) -> str:
+        if self._db_obj_session.base_image_url is None:
             response = await openai_http_session.post(
                 url="https://api.openai.com/v1/images/generations",
                 json={
@@ -185,7 +232,10 @@ class Character(CharacterResponse):
             if error:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                     detail=f"Error reported from open ai: {error['message']}")
-            return json['data'][0]['url']
+            self._db_obj_session.base_image_url = json['data'][0]['url']
+            if db_session:
+                await db_session.commit()
+        return self._db_obj_session.base_image_url
 
 
 async def main():
@@ -203,11 +253,11 @@ async def main():
     story = SAMPLE_STORY
     locations = SAMPLE_LOCATIONS
     character = Character(**SAMPLE_CHARACTERS[0].model_dump())
+    character._recent_history_limit = 2
     character.green_room(
         chat_url=chat_url,
         chat_model=chat_model,
-        verbose=verbose,
-        interactions_limit=2
+        verbose=verbose
     )
 
     # Fake out database object information
@@ -217,6 +267,10 @@ async def main():
         if location.id == character.location_id:
             character._db_obj.location = location
             break
+    character._db_obj_session = Object()
+    character._db_obj_session.id = 1
+    character._db_obj_session.summarized_memory = ""
+    character._db_obj_session.recent_history = []
 
     interactions = [
         '''"Hello!"''',

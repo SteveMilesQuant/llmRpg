@@ -41,12 +41,6 @@ class SessionDb(Base):
         lazy='raise', foreign_keys=[story_id])
     current_choices: Mapped[List['ChoiceDb']] = relationship(
         lazy='raise', cascade='all, delete')
-    character_memories: Mapped[List['CharacterMemoryDb']] = relationship(
-        lazy='raise', cascade='all, delete')
-    character_recent_histories: Mapped[List['CharacterRecentHistoryDb']] = relationship(
-        lazy='raise', cascade='all, delete')
-    character_base_images: Mapped[List['CharacterBaseImagesDb']] = relationship(
-        lazy='raise', cascade='all, delete')
     locations_visited: Mapped[List['LocationsVisitedDb']] = relationship(
         lazy='raise', cascade='all, delete')
 
@@ -73,22 +67,24 @@ class CharacterMemoryDb(Base):
 class CharacterRecentHistoryDb(Base):
     __tablename__ = 'character_recent_history'
 
-    session_id: Mapped[int] = mapped_column(
-        ForeignKey('session.id'), primary_key=True)
-    character_id: Mapped[int] = mapped_column(
-        ForeignKey('character.id'), primary_key=True)
-    index: Mapped[int] = mapped_column(primary_key=True)
-    record: Mapped[str] = mapped_column(Text)
+    character_session_id: Mapped[int] = mapped_column(
+        ForeignKey('character_session.id'), primary_key=True)
+    sort_index: Mapped[int] = mapped_column(primary_key=True)
+    user_input: Mapped[str] = mapped_column(Text)
+    character_response: Mapped[str] = mapped_column(Text)
 
 
-class CharacterBaseImagesDb(Base):
-    __tablename__ = 'character_base_image'
+class CharacterSessionDb(Base):
+    __tablename__ = 'character_session'
 
-    session_id: Mapped[int] = mapped_column(
-        ForeignKey('session.id'), primary_key=True)
-    character_id: Mapped[int] = mapped_column(
-        ForeignKey('character.id'), primary_key=True)
-    base_image_url: Mapped[str] = mapped_column(Text)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey('session.id'))
+    character_id: Mapped[int] = mapped_column(ForeignKey('character.id'))
+
+    base_image_url: Mapped[str] = mapped_column(Text, default="")
+    summarized_memory: Mapped[str] = mapped_column(Text, default="")
+    recent_history: Mapped[List['CharacterRecentHistoryDb']] = relationship(
+        lazy='raise', cascade='all, delete')
 
 
 class ChoiceDb(Base):
