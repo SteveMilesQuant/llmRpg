@@ -118,8 +118,24 @@ class Session(SessionResponse):
             self._db_obj.narrator_memory = self.narrator_memory
             await db_session.commit()
 
-    async def interact(self, openai_http_session: aiohttp.ClientSession, db_session: Optional[Any] = None):
-        pass
+    async def interact(self, openai_http_session: aiohttp.ClientSession, narrator: Narrator, tracker: QuestTracker, character: Character, user_input: str, db_session: Optional[Any] = None):
+        character_response = await character.interact(openai_http_session, f'{filter(lambda q: q.watcher == character.name, tracker.quests)}', user_input)
+        new_interaction = f'From {self.player_name} to {character.name}: """{user_input}"""\n\nFrom {character.name} to {self.player_name}: """{character_response}"""'
+        await narrator.update_memory(openai_http_session, new_interaction)
+        self.narrator_memory = narrator.memory
+        if db_session:
+            self._db_obj.narrator_memory = self.narrator_memory
+            await db_session.commit()
+
+        # Update quests
+        await tracker.update_quests(
+            openai_http_session,
+            player_name=self.player_name,
+            character_name=character.name,
+            interactions=character._db_obj_session.recent_history
+        )
+        if db_session:
+            pass  # TODO: this
 
 
 async def main():
@@ -190,17 +206,7 @@ async def main():
 
                 travel_to_location_id = None
             else:
-                character_response = await current_character.interact(openai_http_session, f'{filter(lambda q: q.watcher == current_character.name, tracker.quests)}', user_input)
-                new_interaction = f'From {player_name} to {current_character.name}: """{user_input}"""\n\nFrom {current_character.name} to {player_name}: """{character_response}"""'
-                await narrator.update_memory(openai_http_session, new_interaction)
-
-                # Update quests
-                await tracker.update_quests(
-                    openai_http_session,
-                    player_name=player_name,
-                    character_name=current_character.name,
-                    interactions=current_character._db_obj_session.recent_history
-                )
+                await session.interact(openai_http_session, narrator, tracker, current_character, user_input)
 
             print('')
             user_input = input('Your choice: ')
