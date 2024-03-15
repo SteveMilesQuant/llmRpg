@@ -3,17 +3,42 @@ import asyncio
 import json
 import os
 from pydantic import BaseModel
-from typing import List
-from db import CharacterRecentHistoryDb
+from typing import List, Optional, Any
+from sqlalchemy import select
+from datamodels import QuestData, QuestResponse
+from db import CharacterRecentHistoryDb, QuestDb
 
 
-class Quest(BaseModel):
-    id: int
-    issuer: str
-    target_behavior: str
-    target_count: int
-    achieved_count: int
-    accepted: bool
+class Quest(QuestResponse):
+    def __init__(self, db_obj: Optional[QuestDb] = None, **data):
+        super().__init__(**data)
+        self._db_obj = db_obj
+
+    async def create(self, db_session: Optional[Any]):
+        if self._db_obj is None and self.id is not None:
+            # Get by ID
+            self._db_obj = await db_session.get(QuestDb, [self.id])
+            if self._db_obj is None:
+                self.id = None
+                return
+
+        if self._db_obj is None:
+            # If none found, create new
+            quest_data = self.model_dump(
+                include=QuestResponse().model_dump())
+            self._db_obj = QuestDb(**quest_data)
+            db_session.add(self._db_obj)
+            await db_session.commit()
+            self.id = self._db_obj.id
+        else:
+            # Otherwise, update attributes from fetched object
+            for key, _ in QuestResponse():
+                setattr(self, key, getattr(self._db_obj, key))
+
+    async def update(self, db_session: Any):
+        for key, _ in QuestData():
+            setattr(self._db_obj, key, getattr(self, key))
+        await db_session.commit()
 
     def __eq__(self, other):
         if isinstance(other, int):
@@ -24,10 +49,10 @@ class Quest(BaseModel):
         return False
 
     def __str__(self) -> str:
-        return self.model_dump_json()
+        return self.model_dump_json(exclude=['session_id'])
 
     def __repr__(self) -> str:
-        return self.model_dump_json()
+        return self.model_dump_json(exclude=['session_id'])
 
 
 class QuestTrackerExample(BaseModel):
@@ -36,7 +61,6 @@ class QuestTrackerExample(BaseModel):
     new_interaction: str
     recent_interactions: str
     quests: List[Quest]
-    quest_id: str
     expected_response: Quest | str
 
 
@@ -48,14 +72,12 @@ Step 1: First, if the human player is accepting one of the unaccepted quests in 
 
 Step 2: If the human player is demonstrating the target behavior of one of the accepted quests in the new interaction, respond with the id of that quest. Otherwise, continue to Step 3.
 
-Step 3: If the character is asking the human player to go on a quest respond with "NEW". Otherwise, continue to Step 4.
+Step 3: If the character is asking the human player to go on a quest in the new interaction, respond with "NEW". Otherwise, continue to Step 4.
 
 Step 4: Respond with "PASS".
 '''
 
 QUEST_QUERY_TEMPLATE = '''The human player, {player_name}, and the character, {character_name}, have had a new interaction. Please respond according to your thought process.
-
-{quest_id}
 
 Current quest list:
 ------------------------------
@@ -73,8 +95,7 @@ New interaction:
 ------------------------------
 '''
 
-NEW_QUEST_DESCRIPTION = '''You are responsible for generating new quests. The input you receive is an existing list of existing quests and an additional new interaction between the human player and the AI character. Generate a quest with the following properties.
-    id: quest id, as provided in the input
+NEW_QUEST_DESCRIPTION = '''You are responsible for generating new quests. The input you receive contains a new interaction between the human player and the AI character. Generate a quest with the following properties based off that new interaction.
     issuer: the name of the character
     target_behavior: the behavior requested of the human player
     target_count: the number of times the behavior should be observed
@@ -82,7 +103,7 @@ NEW_QUEST_DESCRIPTION = '''You are responsible for generating new quests. The in
     accepted: false
 '''
 
-UPDATE_QUEST_DESCRIPTION = '''You are responsible for updating a quest. The input you receive is an existing list of existing quests and an additional new interaction between the human player and the AI character.
+UPDATE_QUEST_DESCRIPTION = '''You are responsible for updating a quest. The input you receive is the data for the quest you are expected to update and a new interaction between the human player and the AI character.
 
 Use the following steps to decide how to respond.
 
@@ -99,7 +120,6 @@ QUEST_TRACKER_EXAMPLES: List[QuestTrackerExample] = [
         new_interaction='''From Dave to Penelope: "Hello, my name is Dave."\nFrom Penelope to Dave: "Hi Dave. I'm penelope."''',
         recent_interactions="",
         quests=[],
-        quest_id="",
         expected_response="PASS"
     ),
     QuestTrackerExample(
@@ -108,7 +128,6 @@ QUEST_TRACKER_EXAMPLES: List[QuestTrackerExample] = [
         new_interaction='''From Dave to Penelope: "Is there anything I can help you with?"\nFrom Penelope to Dave: "Yes, actually. I would like someone to deliver a letter to my sister."''',
         recent_interactions="",
         quests=[],
-        quest_id="",
         expected_response="NEW"
     ),
     QuestTrackerExample(
@@ -118,7 +137,6 @@ QUEST_TRACKER_EXAMPLES: List[QuestTrackerExample] = [
         recent_interactions='''From Dave to Penelope: "Is there anything I can help you with?"\nFrom Penelope to Dave: "Yes, actually. I would like someone to deliver a letter to my sister."''',
         quests=[Quest(id=1, issuer="Penelope", target_behavior="Deliver a letter to Penelope's sister", target_count=1,
                       achieved_count=0, accepted=False)],
-        quest_id="",
         expected_response="1"
     ),
     QuestTrackerExample(
@@ -128,7 +146,6 @@ QUEST_TRACKER_EXAMPLES: List[QuestTrackerExample] = [
         recent_interactions='''From Dave to Penelope: "Is there anything I can help you with?"\nFrom Penelope to Dave: "Yes, actually. I would like someone to deliver a letter to my sister."''',
         quests=[Quest(id=1, issuer="Penelope", target_behavior="Deliver a letter to Penelope's sister", target_count=1,
                       achieved_count=0, accepted=False)],
-        quest_id="",
         expected_response="PASS"
     ),
     QuestTrackerExample(
@@ -138,7 +155,6 @@ QUEST_TRACKER_EXAMPLES: List[QuestTrackerExample] = [
         recent_interactions="",
         quests=[Quest(id=1, issuer="Penelope", target_behavior="Deliver a letter to Penelope's sister", target_count=1,
                       achieved_count=0, accepted=False)],
-        quest_id="",
         expected_response="1"
     ),
 ]
@@ -151,7 +167,6 @@ NEW_QUEST_EXAMPLES: List[QuestTrackerExample] = [
         new_interaction='''From Dave to Penelope: "Is there anything I can help you with?"\nFrom Penelope to Dave: "Yes, actually. I would like someone to deliver a letter to my sister."''',
         recent_interactions="",
         quests=[],
-        quest_id="Quest id: 7",
         expected_response=Quest(id=7, issuer="Penelope", target_behavior="Deliver a letter to Penelope's sister", target_count=1,
                                 achieved_count=0, accepted=False)
     ),
@@ -161,7 +176,6 @@ NEW_QUEST_EXAMPLES: List[QuestTrackerExample] = [
         new_interaction='''From Jerry to Earl: "Is there anything I can do for you?"\nFrom Earl to Jerry: "I need you to kill some local orcs. I believe there are five of them."''',
         recent_interactions="",
         quests=[],
-        quest_id="Quest id: 3",
         expected_response=Quest(id=3, issuer="Earl", target_behavior="Kill orcs", target_count=5,
                                 achieved_count=0, accepted=False)
     )
@@ -175,7 +189,6 @@ UPDATE_QUEST_EXAMPLES: List[QuestTrackerExample] = [
         recent_interactions='''From Dave to Penelope: "Is there anything I can help you with?"\nFrom Penelope to Dave: "Yes, actually. I would like someone to deliver a letter to my sister."''',
         quests=[Quest(id=1, issuer="Penelope", target_behavior="Deliver a letter to Penelope's sister", target_count=1,
                       achieved_count=0, accepted=False)],
-        quest_id="Quest id: 1",
         expected_response="ACCEPTED"
     ),
     QuestTrackerExample(
@@ -185,7 +198,6 @@ UPDATE_QUEST_EXAMPLES: List[QuestTrackerExample] = [
         recent_interactions="",
         quests=[Quest(id=3, issuer="Penelope", target_behavior="Deliver a letter to Penelope's sister", target_count=1,
                       achieved_count=0, accepted=True)],
-        quest_id="Quest id: 3",
         expected_response="ACHIEVED"
     ),
     QuestTrackerExample(
@@ -195,7 +207,6 @@ UPDATE_QUEST_EXAMPLES: List[QuestTrackerExample] = [
         recent_interactions="",
         quests=[Quest(id=8, issuer="Joan", target_behavior="Kill orcs.", target_count=5,
                       achieved_count=3, accepted=True)],
-        quest_id="Quest id: 8",
         expected_response="ACHIEVED"
     )
 ]
@@ -229,10 +240,25 @@ def interaction_to_string(player_name: str, player_to_character: str, character_
 class QuestTracker(BaseModel):
     chat_url: str
     chat_model: str
+    session_id: int
     quests: List[Quest] = []
-    verbose: bool = False
+    verbose: bool = True
 
-    async def update_quests(self, openai_http_session: aiohttp.ClientSession, player_name: str, character_name: str, interactions: List[CharacterRecentHistoryDb] = []) -> None:
+    async def load_quests(self, db_session: any):
+        stmt = select(QuestDb).where(QuestDb.session_id == self.session_id)
+        results = await db_session.execute(stmt)
+        self.quests = []
+        for result in results:
+            quest = Quest(db_obj=result)
+            await quest.create(db_session)
+            self.quests.append(quest)
+
+    async def update_quests(self,
+                            openai_http_session: aiohttp.ClientSession,
+                            player_name: str,
+                            character_name: str,
+                            interactions: List[CharacterRecentHistoryDb] = [],
+                            db_session: Optional[Any] = None) -> None:
         recent_interactions = [interaction_to_string(
             player_name, i.user_input, character_name, i.character_response) for i in interactions]
         recent_interactions_str = '\n'.join(recent_interactions)
@@ -245,7 +271,6 @@ class QuestTracker(BaseModel):
             character_name=character_name,
             recent_interactions=recent_interactions_str,
             new_interaction=new_interaction,
-            quest_id="",
             quests=self.quests
         )
         messages = messages + [{"role": "user", "content": query}]
@@ -261,13 +286,11 @@ class QuestTracker(BaseModel):
         if action_json == "PASS":
             pass
         elif action_json == "NEW":
-            new_id = max([q.id for q in self.quests], default=1)
             query_new = QUEST_QUERY_TEMPLATE.format(
                 player_name=player_name,
                 character_name=character_name,
                 recent_interactions=recent_interactions_str,
                 new_interaction=new_interaction,
-                quest_id=f"Quest id: {new_id}",
                 quests=[]
             )
 
@@ -285,7 +308,13 @@ class QuestTracker(BaseModel):
             response_msg = response_json['choices'][0]['message']
             quest_json = response_msg['content'].strip()
             try:
-                new_quest = Quest(**json.loads(quest_json))
+                new_quest_data = QuestData(**json.loads(quest_json))
+                if db_session:
+                    new_quest = Quest(**new_quest_data.model_dump())
+                    await new_quest.create(db_session)
+                else:
+                    new_id = max([q.id for q in self.quests], default=1)
+                    new_quest = Quest(id=new_id, **new_quest_data.model_dump())
                 self.quests.append(new_quest)
             except:
                 pass
@@ -298,7 +327,6 @@ class QuestTracker(BaseModel):
                 character_name=character_name,
                 recent_interactions=recent_interactions_str,
                 new_interaction=new_interaction,
-                quest_id=f"Quest id: {target_id}",
                 quests=[quest]
             )
 
@@ -321,6 +349,9 @@ class QuestTracker(BaseModel):
             else:
                 quest.achieved_count = quest.achieved_count + 1
 
+            if db_session:
+                await quest.update(db_session)
+
         if self.verbose:
             print(f"Quest action: {action_json}")
             print("Quests:")
@@ -340,7 +371,11 @@ async def main():
     }
 
     tracker = QuestTracker(
-        chat_url=chat_url, chat_model=chat_model, verbose=verbose)
+        chat_url=chat_url,
+        chat_model=chat_model,
+        session_id=1,
+        verbose=verbose
+    )
 
     player_name = 'Steve'
     character_name = 'Cheryl'

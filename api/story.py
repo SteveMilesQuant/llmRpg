@@ -22,14 +22,14 @@ class Story(StoryResponse):
 
         if self._db_obj is None:
             # If none found, create new
-            story_data = self.dict(include=StoryData().dict())
+            story_data = self.model_dump(include=StoryData().model_dump())
             self._db_obj = StoryDb(**story_data)
             session.add(self._db_obj)
             await session.commit()
             self.id = self._db_obj.id
         else:
             # Otherwise, update attributes from fetched object
-            for key, value in StoryResponse():
+            for key, _ in StoryResponse():
                 setattr(self, key, getattr(self._db_obj, key))
 
         await session.refresh(self._db_obj, ['starting_location'])

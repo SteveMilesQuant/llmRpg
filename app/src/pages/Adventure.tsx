@@ -1,10 +1,10 @@
-import { Input, Stack, CardBody, Card, Text, Box } from "@chakra-ui/react";
+import { Stack, CardBody, Card, Text } from "@chakra-ui/react";
 import {
+  Choice,
   useAddInteraction,
   useAdventure,
   useTravel,
 } from "../hooks/useAdventure";
-import { useState } from "react";
 import ChoicesCards from "../components/ChoicesCards";
 import TravelMenu from "../components/TravelMenu";
 import AdventureTitle from "../components/AdventureTitle";
@@ -12,7 +12,6 @@ import CharacterImage from "../characters/components/CharacterImage";
 import AdventureSkeleton from "../components/AdventureSkeleton";
 
 const Adventure = () => {
-  const [playerName, setPlayerName] = useState("");
   const { data: adventure } = useAdventure();
   const addInteraction = useAddInteraction();
   const travel = useTravel();
@@ -21,9 +20,12 @@ const Adventure = () => {
 
   const isPending: boolean = addInteraction.isPending || travel.isPending;
 
-  const allowCustomResponse =
-    adventure.current_choices.length > 1 ||
-    adventure.current_choices[0] != "BEGIN";
+  // If the adventure is underway, submit reponse as interaction
+  // Otherwise, submit it as "travel" (i.e. "embarking" is considered "travel")
+  // Player_name is the indicator of whether we are underway or not
+  const onSubmitChoice = !!adventure.player_name
+    ? (choice: string) => addInteraction.mutate({ choice: choice } as Choice)
+    : (choice: string) => travel.mutate({ choice: choice } as Choice);
 
   return (
     <Stack spacing={5} marginX="auto">
@@ -35,16 +37,7 @@ const Adventure = () => {
         />
       )}
       {isPending && <AdventureSkeleton />}
-      {!isPending && adventure.current_narration === "" && (
-        <Box bgColor="white" opacity="0.8">
-          <Input
-            type="text"
-            placeholder="Enter your name..."
-            onChange={(event) => setPlayerName(event.target.value)}
-          />
-        </Box>
-      )}
-      {!isPending && adventure.current_narration !== "" && (
+      {!isPending && (
         <Card opacity="0.8">
           <CardBody bgColor="brand.200" opacity="0.9" borderRadius={15}>
             <Text textColor="brand.100" fontSize={18} whiteSpace="pre-wrap">
@@ -55,13 +48,11 @@ const Adventure = () => {
       )}
       {!isPending && (
         <ChoicesCards
-          playerName={playerName}
           choices={adventure.current_choices}
-          addInteraction={addInteraction}
-          allowCustomResponse={allowCustomResponse}
+          onSubmit={onSubmitChoice}
         />
       )}
-      {!isPending && adventure.current_narration !== "" && (
+      {adventure.current_character_id && !isPending && (
         <TravelMenu story_id={adventure.story_id} travel={travel} />
       )}
     </Stack>

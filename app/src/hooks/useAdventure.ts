@@ -10,10 +10,10 @@ export interface Adventure {
   current_narration: string;
   current_choices: string[];
   current_character_id: number;
+  player_name?: string; // if defined, adventure is underway
 }
 
 export interface Choice {
-  player_name: string;
   choice: string;
   location_id: number;
 }

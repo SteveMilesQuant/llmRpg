@@ -15,6 +15,7 @@ from datamodels import CharacterData, CharacterResponse, CharacterBaseImage
 from user import User
 from session import Session
 from narrator import Narrator
+from quest import QuestTracker
 from story import Story, all_stories
 from location import Location
 from character import Character
@@ -57,8 +58,14 @@ async def startup():
     app.config.jwt_lifetime = timedelta(days=1)
     app.config.jwt_algorithm = "HS256"
     app.config.jwt_subject = "access"
+    app.config.chat_url = "https://api.openai.com/v1/chat/completions"
+    app.config.chat_model = "gpt-3.5-turbo"
 
     app.google_client = WebApplicationClient(app.config.GOOGLE_CLIENT_ID)
+    app.openai_headers = {
+        'content-type': 'application/json',
+        'authorization': f'Bearer {os.environ.get("OPENAI_API_KEY")}'
+    }
 
     app.db_engine, app.db_sessionmaker = await init_db(
         user=os.environ.get('DB_USER'),
@@ -168,12 +175,6 @@ async def session_start_post(request: Request, story_id: int):
             if session.id is None:
                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                                     detail=f"Session could not be created")
-            await session.update_current_status(
-                db_session,
-                current_character_id=story._db_obj.starting_location.starting_character_id,
-                current_narration="",
-                current_choices=["BEGIN"]
-            )
 
         session_token, token_expiration = user_id_to_auth_token(
             app, session.id)
@@ -511,148 +512,108 @@ async def get_simulate(request: Request):
 @api_router.post("/interact", response_model=SessionResponse)
 async def post_interact(request: Request, user_choice: ChoiceData):
     '''Make a single interaction in the adventure.'''
-    async with app.db_sessionmaker() as db_session:
-        session = await get_session(request, db_session)
-        if session is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Session not found. Start a new session.")
+    async with aiohttp.ClientSession(headers=app.openai_headers) as openai_http_session:
+        async with app.db_sessionmaker() as db_session:
+            session = await get_session(request, db_session)
+            if session is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                    detail=f"Session not found. Start a new session.")
 
-        story = Story(id=session.story_id)
-        await story.create(db_session)
-        if story.id is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Story id={session.story_id} does not exist")
-
-        character = Character(id=session.current_character_id)
-        await character.create(db_session)
-
-        location = Location(_db_obj=character._db_obj.location)
-        await location.create(db_session)
-
-        if session.current_narration == "" and len(session.current_choices) == 1 and session.current_choices[0] == 'BEGIN':
-            session.player_name = user_choice.player_name
-            narrator = Narrator(llm=app.llm)
-            character.green_room(llm=app.llm)
-            narrator_response = await narrator.embark(session.player_name, story, location, character)
-            await session.add_location(location.id)
-        else:
-            narrator = Narrator(
-                llm=app.llm, memory_buffer=session.narrator_memory)
+            character = session.current_character
             character.green_room(
-                llm=app.llm,
-                memory_buffer=session.character_memories.get(character.id),
-                recent_history=session.character_recent_histories.get(
-                    character.id),
-                base_image=session.character_base_images.get(character.id)
+                chat_url=app.config.chat_url,
+                chat_model=app.config.chat_model
             )
-            narrator_response = await narrator.interact(character, user_choice.choice)
 
-        session.narrator_memory = narrator.memory.buffer
-        await session.update_basic(db_session)
-        await session.update_current_status(
-            db_session,
-            current_narration=narrator_response['exposition'],
-            current_choices=narrator_response['choices']
-        )
-        if character._last_interaction is not None:
-            await session.add_character_recent_history(db_session, character.id, character._last_interaction)
-        await session.update_character_memory(db_session, character.id, character._memory.buffer)
+            narrator = Narrator(
+                chat_url=app.config.chat_url,
+                chat_model=app.config.chat_model,
+                player_name=session.player_name,
+                story=session.story,
+                memory=session.narrator_memory
+            )
 
-        return session
+            tracker = QuestTracker(
+                chat_url=app.config.chat_url,
+                chat_model=app.config.chat_model,
+                session_id=session.id
+            )
+            await tracker.load_quests(db_session)
+
+            await session.interact(openai_http_session, narrator, tracker, user_choice.choice, db_session)
+
+            return session
 
 
 # Public route, but session required
 @api_router.post("/travel", response_model=SessionResponse)
 async def post_travel(request: Request, user_choice: ChoiceData):
     '''Travel to a new location.'''
-    async with app.db_sessionmaker() as db_session:
-        session = await get_session(request, db_session)
-        if session is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Session not found. Start a new session.")
+    async with aiohttp.ClientSession(headers=app.openai_headers) as openai_http_session:
+        async with app.db_sessionmaker() as db_session:
+            session = await get_session(request, db_session)
+            if session is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                    detail=f"Session not found. Start a new session.")
 
-        story = Story(id=session.story_id)
-        await story.create(db_session)
-        if story.id is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Story id={session.story_id} does not exist")
+            if session.current_character_id is None:
+                # New adventure means
+                if user_choice.choice is None:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                        detail=f"When starting a new story, player name is required.")
+                session.player_name = user_choice.choice
+                new_location = None
+            else:
+                if user_choice.location_id is None:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                        detail=f"Location id={user_choice.location_id} does not exist")
 
-        if user_choice.location_id is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Location id={user_choice.location_id} does not exist")
-        new_location = Location(id=user_choice.location_id)
-        await new_location.create(db_session)
-        if new_location.id is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Location id={user_choice.location_id} does not exist")
+                new_location = Location(id=user_choice.location_id)
+                await new_location.create(db_session)
+                if new_location.id is None:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                        detail=f"Location id={user_choice.location_id} does not exist")
 
-        await story.locations(db_session)
-        if new_location._db_obj not in story._db_obj.locations:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Location id={new_location.id} is not within story with story id={session.story_id}")
+                await session.story.locations(db_session)
+                if new_location._db_obj not in session.story._db_obj.locations:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                        detail=f"Location id={new_location.id} is not within story with story id={session.story.id}")
 
-        previous_character = Character(id=session.current_character_id)
-        await previous_character.create(db_session)
+            narrator = Narrator(
+                chat_url=app.config.chat_url,
+                chat_model=app.config.chat_model,
+                player_name=session.player_name,
+                story=session.story,
+                memory=session.narrator_memory or ""
+            )
 
-        first_time_visiting = (
-            session.locations_visited.get(new_location.id) is None)
+            await session.travel(openai_http_session, narrator, new_location, db_session)
 
-        narrator = Narrator(
-            llm=app.llm, memory_buffer=session.narrator_memory)
-        previous_character.green_room(
-            llm=app.llm,
-            memory_buffer=session.character_memories.get(
-                previous_character.id),
-            recent_history=session.character_recent_histories.get(
-                previous_character.id)
-        )
-        narrator_response = await narrator.travel(session.player_name, previous_character, new_location, first_time_visiting)
-
-        session.narrator_memory = narrator.memory.buffer
-        await session.update_basic(db_session)
-        await session.add_location(new_location.id)
-        await session.update_current_status(
-            db_session,
-            current_character_id=new_location.starting_character_id,
-            current_narration=narrator_response['exposition'],
-            current_choices=narrator_response['choices']
-        )
-        await session.add_character_recent_history(db_session, previous_character.id, previous_character._last_interaction)
-        await session.update_character_memory(db_session, previous_character.id, previous_character._memory.buffer)
-
-        return session
+            return session
 
 
 # Public route, but session required
 @api_router.get("/stories/{story_id}/characters/{character_id}/base_image", response_model=CharacterBaseImage)
 async def get_character_base_image(request: Request, story_id: int, character_id: int):
-    async with app.db_sessionmaker() as db_session:
-        session = await get_session(request, db_session)
-        if session is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Session not found. Start a new session.")
+    async with aiohttp.ClientSession(headers=app.openai_headers) as openai_http_session:
+        async with app.db_sessionmaker() as db_session:
+            session = await get_session(request, db_session)
+            if session is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                    detail=f"Session not found. Start a new session.")
 
-        story = Story(id=session.story_id)
-        await story.create(db_session)
-        if story.id is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Story id={session.story_id} does not exist")
+            character = Character(id=character_id)
+            await character.create(db_session)
+            if character.id is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                    detail=f"Character id={character_id} does not exist")
+            if character._db_obj not in await session.story.characters(db_session):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                    detail=f"Character id={character_id} does not exist for story id={story_id}")
 
-        character = Character(id=character_id)
-        await character.create(db_session)
-        if character.id is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Character id={character_id} does not exist")
-        if character._db_obj not in await story.characters(db_session):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"Character id={character_id} does not exist for story id={story_id}")
-
-        image = session.character_base_images.get(character.id)
-        if image is None:
-            character.green_room(llm=app.llm)
-            image_url = await character.generate_base_image()
-            image = await session.update_character_base_image(db_session, character.id, image_url)
-        return image
+            await character.prepare_session(db_session, session.id)
+            image_url = await character.generate_base_image(openai_http_session, db_session)
+            return CharacterBaseImage(id=character.id, url=image_url)
 
 
 ###############################################################################

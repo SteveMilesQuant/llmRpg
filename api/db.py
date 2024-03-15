@@ -34,14 +34,19 @@ class SessionDb(Base):
     player_name: Mapped[str] = mapped_column(Text, nullable=True)
     current_character_id: Mapped[int] = mapped_column(
         ForeignKey('character.id'), nullable=True)
-    current_narration: Mapped[str] = mapped_column(Text, nullable=True)
-    narrator_memory: Mapped[str] = mapped_column(Text, nullable=True)
+    current_narration: Mapped[str] = mapped_column(
+        Text, default="Enter player name:")
+    narrator_memory: Mapped[str] = mapped_column(Text, default="")
 
     story: Mapped['StoryDb'] = relationship(
         lazy='raise', foreign_keys=[story_id])
+    current_character: Mapped['CharacterDb'] = relationship(
+        lazy='raise', foreign_keys=[current_character_id])
     current_choices: Mapped[List['ChoiceDb']] = relationship(
         lazy='raise', cascade='all, delete')
     locations_visited: Mapped[List['LocationsVisitedDb']] = relationship(
+        lazy='raise', cascade='all, delete')
+    quests: Mapped[List['QuestDb']] = relationship(
         lazy='raise', cascade='all, delete')
 
 
@@ -54,14 +59,16 @@ class LocationsVisitedDb(Base):
         ForeignKey('location.id'), primary_key=True)
 
 
-class CharacterMemoryDb(Base):
-    __tablename__ = 'character_memory'
+class QuestDb(Base):
+    __tablename__ = 'quest'
 
-    session_id: Mapped[int] = mapped_column(
-        ForeignKey('session.id'), primary_key=True)
-    character_id: Mapped[int] = mapped_column(
-        ForeignKey('character.id'), primary_key=True)
-    memory_buffer: Mapped[str] = mapped_column(Text)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey('session.id'))
+    issuer: Mapped[str] = mapped_column(Text)
+    target_behavior: Mapped[str] = mapped_column(Text)
+    target_count: Mapped[int] = mapped_column(default=1)
+    achieved_count: Mapped[int] = mapped_column(default=0)
+    accepted: Mapped[bool] = mapped_column(default=False)
 
 
 class CharacterRecentHistoryDb(Base):
@@ -81,7 +88,7 @@ class CharacterSessionDb(Base):
     session_id: Mapped[int] = mapped_column(ForeignKey('session.id'))
     character_id: Mapped[int] = mapped_column(ForeignKey('character.id'))
 
-    base_image_url: Mapped[str] = mapped_column(Text, default="")
+    base_image_url: Mapped[str] = mapped_column(Text, nullable=True)
     summarized_memory: Mapped[str] = mapped_column(Text, default="")
     recent_history: Mapped[List['CharacterRecentHistoryDb']] = relationship(
         lazy='raise', cascade='all, delete')

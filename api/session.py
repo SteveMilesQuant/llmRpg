@@ -2,10 +2,10 @@ import os
 import asyncio
 import aiohttp
 from pydantic import PrivateAttr
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 from sqlalchemy import select
 from datamodels import SAMPLE_CHARACTERS, Object, SessionData, SessionResponse, SAMPLE_STORY, SAMPLE_LOCATIONS
-from db import CharacterSessionDb, LocationsVisitedDb, SessionDb
+from db import CharacterSessionDb, ChoiceDb, LocationsVisitedDb, SessionDb
 from narrator import Narrator
 from story import Story
 from location import Location
@@ -15,9 +15,10 @@ from quest import QuestTracker
 
 class Session(SessionResponse):
     _db_obj: Optional[SessionDb] = PrivateAttr()
-    player_name: Optional[str] = None
-    narrator_memory: Optional[str] = None
+    story: Optional[Story] = None
     locations_visited: Dict[int, bool] = {}
+    current_character: Optional[Character] = None
+    current_choices: List[str] = []
 
     def __init__(self, db_obj: Optional[SessionDb] = None, **data):
         super().__init__(**data)
@@ -44,25 +45,45 @@ class Session(SessionResponse):
                 if key not in ['current_choices', 'locations_visited']:
                     setattr(self, key, getattr(self._db_obj, key))
 
-        await db_session.refresh(self._db_obj, ['current_choices', 'locations_visited'])
+        await db_session.refresh(self._db_obj, ['current_choices', 'locations_visited', 'quests', 'current_character', 'story'])
         self.current_choices = [
             choice.choice for choice in self._db_obj.current_choices or []]
         self.locations_visited = {
-            location_id: True for location_id in self._db_obj.locations_visited}
+            l.location_id: True for l in self._db_obj.locations_visited}
+        if self._db_obj.current_character:
+            self.current_character = Character(
+                db_obj=self._db_obj.current_character)
+            await self.current_character.create(db_session)
+        self.story = Story(db_obj=self._db_obj.story)
+        await self.story.create(db_session)
 
     async def update_basic(self, db_session: Any):
-        for key, _ in SessionData():
+        await db_session.refresh(self._db_obj, ['current_choices'])
+        for choice_db in self._db_obj.current_choices:
+            await db_session.delete(choice_db)
+        for choice in self.current_choices:
+            choice_db = ChoiceDb(session_id=self.id, choice=choice)
+            db_session.add(choice_db)
+            self._db_obj.current_choices.append(choice_db)
+        for key, _ in SessionResponse():
             setattr(self._db_obj, key, getattr(self, key))
+        self._db_obj.current_character_id = self.current_character_id
         await db_session.commit()
+
+        await db_session.refresh(self._db_obj, ['current_character', 'story'])
+        self.current_character = Character(
+            db_obj=self._db_obj.current_character)
+        self.story = Story(db_obj=self._db_obj.story)
+        await self.story.create(db_session)
 
     async def delete(self, db_session: Any):
         stmt = select(CharacterSessionDb).where(
             CharacterSessionDb.session_id == self.id)
         results = await db_session.execute(stmt)
         for result in results:
-            await db_session.refresh(result, ['recent_history'])
-            await db_session.delete(result)
-        await db_session.refresh(self._db_obj, ['locations_visited'])
+            await db_session.refresh(result[0], ['recent_history'])
+            await db_session.delete(result[0])
+        await db_session.refresh(self._db_obj, ['current_choices', 'locations_visited', 'quests'])
         await db_session.delete(self._db_obj)
         await db_session.commit()
 
@@ -81,23 +102,27 @@ class Session(SessionResponse):
             self._db_obj.locations_visited.append(loc_visited_db)
             await db_session.commit()
 
-    async def travel(self, openai_http_session: aiohttp.ClientSession, narrator: Narrator, last_location: Location, location: Location, db_session: Optional[Any] = None):
+    async def travel(self, openai_http_session: aiohttp.ClientSession, narrator: Narrator, location: Optional[Location] = None, db_session: Optional[Any] = None):
         narrator_expo = ""
-        character = location._db_obj.starting_character
 
         # Travel to a new location
         if self.current_character_id is None:
             # Entirely new adventure
             expo = await narrator.embark(openai_http_session)
             narrator_expo = narrator_expo + expo + '\n\n'
-
+            if db_session:
+                location = Location(
+                    db_obj=self.story._db_obj.starting_location)
+                await location.create(db_session)
+            else:
+                location = self.story._db_obj.starting_location
         else:
             # Just a new location
-            expo = await narrator.travel(openai_http_session, last_location, location)
+            expo = await narrator.travel(openai_http_session, self.current_character._db_obj.location, location)
             narrator_expo = narrator_expo + expo + '\n\n'
-        self.current_character_id = character.id
 
         # Describe that location and character, if it is our first time here
+        character = location._db_obj.starting_character
         if not self.locations_visited.get(location.id):
             expo = await narrator.arrive(openai_http_session, location)
             narrator_expo = narrator_expo + expo + '\n\n'
@@ -110,21 +135,38 @@ class Session(SessionResponse):
             expo = await narrator.remeet(openai_http_session, character)
             narrator_expo = narrator_expo + expo + '\n\n'
 
-        # Finally, update narrator memory
+        # Update narrator memory
         narrator_expo = narrator_expo.strip()
         await narrator.update_memory(openai_http_session, f'Narrator: {narrator_expo}')
-        self.narrator_memory = narrator.memory
-        if db_session:
-            self._db_obj.narrator_memory = self.narrator_memory
-            await db_session.commit()
 
-    async def interact(self, openai_http_session: aiohttp.ClientSession, narrator: Narrator, tracker: QuestTracker, character: Character, user_input: str, db_session: Optional[Any] = None):
+        # TODO: offer choices
+
+        # Commit to database
+        self.current_character_id = character.id
+        self.narrator_memory = narrator.memory
+        self.current_narration = narrator_expo
+        if db_session:
+            await self.update_basic(db_session)
+        else:
+            self.current_character = character
+
+    async def interact(self,
+                       openai_http_session: aiohttp.ClientSession,
+                       narrator: Narrator,
+                       tracker: QuestTracker,
+                       user_input: str,
+                       db_session: Optional[Any] = None):
+        character = self.current_character
+        if db_session:
+            await character.prepare_session(db_session, self.id)
         character_response = await character.interact(openai_http_session, f'{filter(lambda q: q.watcher == character.name, tracker.quests)}', user_input)
         new_interaction = f'From {self.player_name} to {character.name}: """{user_input}"""\n\nFrom {character.name} to {self.player_name}: """{character_response}"""'
         await narrator.update_memory(openai_http_session, new_interaction)
+
         self.narrator_memory = narrator.memory
+        self.current_narration = character_response
         if db_session:
-            self._db_obj.narrator_memory = self.narrator_memory
+            await self.update_basic(db_session)
             await db_session.commit()
 
         # Update quests
@@ -132,10 +174,9 @@ class Session(SessionResponse):
             openai_http_session,
             player_name=self.player_name,
             character_name=character.name,
-            interactions=character._db_obj_session.recent_history
+            interactions=character._db_obj_session.recent_history,
+            db_session=db_session
         )
-        if db_session:
-            pass  # TODO: this
 
 
 async def main():
@@ -152,7 +193,7 @@ async def main():
 
     # Initialize sample story
     player_name = 'Steve'
-    session = Session(player_name=player_name)
+    session = Session(id=1, player_name=player_name)
     story = Story(**SAMPLE_STORY.model_dump())
     travel_to_location_id: Optional[int] = story.starting_location_id
     narrator = Narrator(
@@ -164,12 +205,21 @@ async def main():
         verbose=verbose
     )
     tracker = QuestTracker(
-        chat_url=chat_url, chat_model=chat_model, verbose=verbose)
+        chat_url=chat_url,
+        chat_model=chat_model,
+        session_id=session.id,
+        verbose=verbose
+    )
     locations = [Location(**l.model_dump()) for l in SAMPLE_LOCATIONS]
     characters = [Character(**c.model_dump()) for c in SAMPLE_CHARACTERS]
-    current_location = None
 
     # Fake out database object information
+    session.story = story
+    story._db_obj = Object()
+    for location in locations:
+        if location.id == story.starting_location_id:
+            story._db_obj.starting_location = location
+            break
     for character in characters:
         character.green_room(
             chat_url=chat_url,
@@ -195,18 +245,15 @@ async def main():
         while (continueStory):
             if travel_to_location_id is not None:
                 # Update local tracking for character and location
-                last_location = current_location
-                for character in characters:
-                    if character.location_id == travel_to_location_id:
-                        current_character = character
+                for location in locations:
+                    if location.id == travel_to_location_id:
                         break
-                current_location = current_character._db_obj.location
 
-                await session.travel(openai_http_session, narrator, last_location, current_location)
+                await session.travel(openai_http_session, narrator, location)
 
                 travel_to_location_id = None
             else:
-                await session.interact(openai_http_session, narrator, tracker, current_character, user_input)
+                await session.interact(openai_http_session, narrator, tracker, user_input)
 
             print('')
             user_input = input('Your choice: ')

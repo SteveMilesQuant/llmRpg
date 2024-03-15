@@ -188,7 +188,7 @@ class Character(CharacterResponse):
 
         # Add the new interaction
         new_index = max(
-            [i.sort_index for i in self._db_obj_session.recent_history], default=1)
+            [i.sort_index for i in self._db_obj_session.recent_history], default=0) + 1
         new_interaction = CharacterRecentHistoryDb(
             character_session_id=self._db_obj_session.id,
             sort_index=new_index,
