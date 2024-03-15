@@ -163,12 +163,6 @@ class Session(SessionResponse):
         new_interaction = f'From {self.player_name} to {character.name}: """{user_input}"""\n\nFrom {character.name} to {self.player_name}: """{character_response}"""'
         await narrator.update_memory(openai_http_session, new_interaction)
 
-        self.narrator_memory = narrator.memory
-        self.current_narration = character_response
-        if db_session:
-            await self.update_basic(db_session)
-            await db_session.commit()
-
         # Update quests
         await tracker.update_quests(
             openai_http_session,
@@ -177,6 +171,13 @@ class Session(SessionResponse):
             interactions=character._db_obj_session.recent_history,
             db_session=db_session
         )
+
+        # Commit to database
+        self.narrator_memory = narrator.memory
+        self.current_narration = character_response
+        if db_session:
+            await self.update_basic(db_session)
+            await db_session.commit()
 
 
 async def main():

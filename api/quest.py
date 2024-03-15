@@ -167,7 +167,7 @@ NEW_QUEST_EXAMPLES: List[QuestTrackerExample] = [
         new_interaction='''From Dave to Penelope: "Is there anything I can help you with?"\nFrom Penelope to Dave: "Yes, actually. I would like someone to deliver a letter to my sister."''',
         recent_interactions="",
         quests=[],
-        expected_response=Quest(id=7, issuer="Penelope", target_behavior="Deliver a letter to Penelope's sister", target_count=1,
+        expected_response=Quest(issuer="Penelope", target_behavior="Deliver a letter to Penelope's sister", target_count=1,
                                 achieved_count=0, accepted=False)
     ),
     QuestTrackerExample(
@@ -176,7 +176,7 @@ NEW_QUEST_EXAMPLES: List[QuestTrackerExample] = [
         new_interaction='''From Jerry to Earl: "Is there anything I can do for you?"\nFrom Earl to Jerry: "I need you to kill some local orcs. I believe there are five of them."''',
         recent_interactions="",
         quests=[],
-        expected_response=Quest(id=3, issuer="Earl", target_behavior="Kill orcs", target_count=5,
+        expected_response=Quest(issuer="Earl", target_behavior="Kill orcs", target_count=5,
                                 achieved_count=0, accepted=False)
     )
 ]
@@ -223,7 +223,7 @@ for example in NEW_QUEST_EXAMPLES:
     query = QUEST_QUERY_TEMPLATE.format(**example.model_dump())
     NEW_QUEST_FEW_SHOT_MESSAGES.append({"role": "user", "content": query})
     NEW_QUEST_FEW_SHOT_MESSAGES.append(
-        {"role": "assistant", "content": f'{example.expected_response}'})
+        {"role": "assistant", "content": example.expected_response.model_dump_json(exclude=['id', 'session_id'])})
 
 UPDATE_QUEST_FEW_SHOT_MESSAGES = []
 for example in UPDATE_QUEST_EXAMPLES:
@@ -249,7 +249,7 @@ class QuestTracker(BaseModel):
         results = await db_session.execute(stmt)
         self.quests = []
         for result in results:
-            quest = Quest(db_obj=result)
+            quest = Quest(db_obj=result[0])
             await quest.create(db_session)
             self.quests.append(quest)
 
@@ -307,17 +307,22 @@ class QuestTracker(BaseModel):
             response_json = await response.json()
             response_msg = response_json['choices'][0]['message']
             quest_json = response_msg['content'].strip()
-            try:
-                new_quest_data = QuestData(**json.loads(quest_json))
-                if db_session:
-                    new_quest = Quest(**new_quest_data.model_dump())
-                    await new_quest.create(db_session)
-                else:
-                    new_id = max([q.id for q in self.quests], default=1)
-                    new_quest = Quest(id=new_id, **new_quest_data.model_dump())
-                self.quests.append(new_quest)
-            except:
-                pass
+
+            new_quest_data = QuestData(**json.loads(quest_json))
+            if db_session:
+                new_quest = Quest(
+                    **new_quest_data.model_dump(),
+                    session_id=self.session_id
+                )
+                await new_quest.create(db_session)
+            else:
+                new_id = max([q.id for q in self.quests], default=1)
+                new_quest = Quest(
+                    id=new_id,
+                    **new_quest_data.model_dump(),
+                    session_id=self.session_id
+                )
+            self.quests.append(new_quest)
         else:
             target_id = int(action_json)
             quest = self.quests[self.quests.index(target_id)]
