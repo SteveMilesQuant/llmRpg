@@ -35,7 +35,7 @@ const Characters = ({ storyId }: Props) => {
           />
           <Button
             onClick={onOpen}
-            bgColor="brand.bg"
+            variant="outline"
             color="inherit"
             _hover={undefined}
           >

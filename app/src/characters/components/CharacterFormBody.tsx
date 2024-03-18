@@ -31,7 +31,7 @@ const CharacterFormBody = ({
   return (
     <SimpleGrid columns={1} gap={5}>
       <FormControl>
-        <FormLabel textColor="white">Name</FormLabel>
+        <FormLabel>Name</FormLabel>
         <InputError
           label={errors.name?.message}
           isOpen={errors.name ? true : false}
@@ -46,7 +46,7 @@ const CharacterFormBody = ({
       </FormControl>
       {showLocation && (
         <FormControl>
-          <FormLabel textColor="white">Location</FormLabel>
+          <FormLabel>Location</FormLabel>
           <InputError
             label={errors.location_id?.message}
             isOpen={errors.location_id ? true : false}
@@ -67,7 +67,7 @@ const CharacterFormBody = ({
         </FormControl>
       )}
       <FormControl>
-        <FormLabel textColor="white">Public Description</FormLabel>
+        <FormLabel>Public Description</FormLabel>
         <InputError
           label={errors.public_description?.message}
           isOpen={errors.public_description ? true : false}
@@ -83,7 +83,7 @@ const CharacterFormBody = ({
         </InputError>
       </FormControl>
       <FormControl>
-        <FormLabel textColor="white">Private Description</FormLabel>
+        <FormLabel>Private Description</FormLabel>
         <InputError
           label={errors.private_description?.message}
           isOpen={errors.private_description ? true : false}

@@ -1,10 +1,10 @@
 import {
   FormControl,
-  FormLabel,
   Input,
   Select,
   Stack,
   Textarea,
+  FormLabel,
 } from "@chakra-ui/react";
 import {
   FieldErrors,
@@ -37,7 +37,7 @@ const StoryFormBody = ({
   return (
     <Stack spacing={5}>
       <FormControl>
-        <FormLabel textColor="white">Title</FormLabel>
+        <FormLabel>Title</FormLabel>
         <InputError
           label={errors.title?.message}
           isOpen={errors.title ? true : false}
@@ -51,7 +51,7 @@ const StoryFormBody = ({
         </InputError>
       </FormControl>
       <FormControl>
-        <FormLabel textColor="white">Blurb</FormLabel>
+        <FormLabel>Blurb</FormLabel>
         <InputError
           label={errors.blurb?.message}
           isOpen={errors.blurb ? true : false}
@@ -68,7 +68,7 @@ const StoryFormBody = ({
       </FormControl>
       {showLocation && (
         <FormControl>
-          <FormLabel textColor="white">Starting location</FormLabel>
+          <FormLabel>Starting location</FormLabel>
           <InputError
             label={errors.starting_location_id?.message}
             isOpen={errors.starting_location_id ? true : false}
@@ -90,7 +90,7 @@ const StoryFormBody = ({
         </FormControl>
       )}
       <FormControl>
-        <FormLabel textColor="white">Setting</FormLabel>
+        <FormLabel>Setting</FormLabel>
         <InputError
           label={errors.setting?.message}
           isOpen={errors.setting ? true : false}

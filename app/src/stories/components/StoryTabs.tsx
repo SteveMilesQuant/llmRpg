@@ -12,24 +12,24 @@ const StoryTabs = ({ story }: Props) => {
   return (
     <Tabs variant="enclosed">
       <TabList color="brand.100">
-        <Tab bgColor="brand.bg" marginX={0.5}>
+        <Tab bgColor="white" marginRight={0.5}>
           Story
         </Tab>
-        <Tab bgColor="brand.bg" marginX={0.5}>
+        <Tab bgColor="white" marginRight={0.5}>
           Locations
         </Tab>
-        <Tab bgColor="brand.bg" marginX={0.5}>
+        <Tab bgColor="white" marginRight={0.5}>
           Characters
         </Tab>
       </TabList>
       <TabPanels>
-        <TabPanel>
+        <TabPanel bgColor="white">
           <StoryForm story={story} />
         </TabPanel>
-        <TabPanel>
+        <TabPanel bgColor="white">
           <Locations storyId={story.id} />
         </TabPanel>
-        <TabPanel>
+        <TabPanel bgColor="white">
           <Characters storyId={story.id} />
         </TabPanel>
       </TabPanels>

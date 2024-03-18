@@ -36,7 +36,7 @@ const Design = () => {
           <Button
             size="md"
             color="inherit"
-            bgColor="brand.bg"
+            bgColor="white"
             onClick={() => {
               updateStory.mutate({
                 ...story,

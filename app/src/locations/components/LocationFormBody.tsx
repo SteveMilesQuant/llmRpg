@@ -1,10 +1,10 @@
 import {
   FormControl,
-  FormLabel,
   Input,
   Select,
   SimpleGrid,
   Textarea,
+  FormLabel,
 } from "@chakra-ui/react";
 import { FieldErrors, UseFormRegister } from "react-hook-form";
 import { FormData } from "../hooks/useLocationForm";
@@ -31,7 +31,7 @@ const LocationFormBody = ({
   return (
     <SimpleGrid columns={1} gap={5}>
       <FormControl>
-        <FormLabel textColor="white">Name</FormLabel>
+        <FormLabel>Name</FormLabel>
         <InputError
           label={errors.name?.message}
           isOpen={errors.name ? true : false}
@@ -46,7 +46,7 @@ const LocationFormBody = ({
       </FormControl>
       {showStartingCharacter && (
         <FormControl>
-          <FormLabel textColor="white">Starting character</FormLabel>
+          <FormLabel>Starting character</FormLabel>
           <InputError
             label={errors.starting_character_id?.message}
             isOpen={errors.starting_character_id ? true : false}
@@ -67,7 +67,7 @@ const LocationFormBody = ({
         </FormControl>
       )}
       <FormControl>
-        <FormLabel textColor="white">Description</FormLabel>
+        <FormLabel>Description</FormLabel>
         <InputError
           label={errors.description?.message}
           isOpen={errors.description ? true : false}
