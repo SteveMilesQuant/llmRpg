@@ -73,3 +73,4 @@ jobs:
           docker rm llmrpg-api || true
           docker run -d --name llmrpg-app -p 8080:8080 $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_app
           docker run -d --env-file ~/llmrpg.env --name llmrpg-api -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:llmrpg_api
+          docker image prune -a -f
