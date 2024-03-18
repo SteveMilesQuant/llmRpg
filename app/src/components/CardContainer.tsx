@@ -15,7 +15,7 @@ const CardContainer = ({ children, onClick }: Props) => {
         transform: "scale(1.03)",
         transition: "transform .2s ease-in",
       }}
-      opacity="0.9"
+      bgColor="brand.bg"
       onClick={onClick}
     >
       <CardBody textColor="brand.100">{children}</CardBody>

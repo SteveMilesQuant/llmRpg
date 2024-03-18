@@ -11,10 +11,16 @@ interface Props {
 const StoryTabs = ({ story }: Props) => {
   return (
     <Tabs variant="enclosed">
-      <TabList>
-        <Tab>Story</Tab>
-        <Tab>Locations</Tab>
-        <Tab>Characters</Tab>
+      <TabList color="brand.100">
+        <Tab bgColor="brand.bg" marginX={0.5}>
+          Story
+        </Tab>
+        <Tab bgColor="brand.bg" marginX={0.5}>
+          Locations
+        </Tab>
+        <Tab bgColor="brand.bg" marginX={0.5}>
+          Characters
+        </Tab>
       </TabList>
       <TabPanels>
         <TabPanel>

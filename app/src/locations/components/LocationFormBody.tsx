@@ -31,17 +31,22 @@ const LocationFormBody = ({
   return (
     <SimpleGrid columns={1} gap={5}>
       <FormControl>
-        <FormLabel>Name</FormLabel>
+        <FormLabel textColor="white">Name</FormLabel>
         <InputError
           label={errors.name?.message}
           isOpen={errors.name ? true : false}
         >
-          <Input {...register("name")} type="text" isReadOnly={isReadOnly} />
+          <Input
+            bgColor="brand.bg"
+            {...register("name")}
+            type="text"
+            isReadOnly={isReadOnly}
+          />
         </InputError>
       </FormControl>
       {showStartingCharacter && (
         <FormControl>
-          <FormLabel>Starting character</FormLabel>
+          <FormLabel textColor="white">Starting character</FormLabel>
           <InputError
             label={errors.starting_character_id?.message}
             isOpen={errors.starting_character_id ? true : false}
@@ -49,6 +54,7 @@ const LocationFormBody = ({
             <Select
               {...register("starting_character_id")}
               disabled={isReadOnly}
+              bgColor="brand.bg"
             >
               <option value="">Select character</option>{" "}
               {characters?.map((character) => (
@@ -61,7 +67,7 @@ const LocationFormBody = ({
         </FormControl>
       )}
       <FormControl>
-        <FormLabel>Description</FormLabel>
+        <FormLabel textColor="white">Description</FormLabel>
         <InputError
           label={errors.description?.message}
           isOpen={errors.description ? true : false}
@@ -72,6 +78,7 @@ const LocationFormBody = ({
             size="xl"
             height="15rem"
             isReadOnly={isReadOnly}
+            bgColor="brand.bg"
           />
         </InputError>
       </FormControl>

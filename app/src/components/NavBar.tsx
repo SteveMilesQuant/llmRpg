@@ -10,8 +10,13 @@ const NavBar = () => {
   return (
     <HStack justifyContent="space-between" width="100%" padding={2}>
       <Box padding={1} marginX={3}>
-        <Heading fontFamily="monospace" fontSize="30px" color="brand.100">
-          {pageContextType === PageContextType.public ? "" : "stories (design)"}
+        <Heading
+          fontFamily="monospace"
+          fontSize="4xl"
+          color="white"
+          opacity="0.9"
+        >
+          {pageContextType === PageContextType.public ? "" : "design"}
         </Heading>
       </Box>
       <Box padding={1}>

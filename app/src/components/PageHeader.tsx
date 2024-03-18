@@ -17,7 +17,7 @@ const PageHeader = ({
   return (
     <>
       <HStack justifyContent="space-between" marginBottom={5}>
-        <Box borderRadius={15} padding={3} bgColor="rgba(255,255,255,0.8)">
+        <Box borderRadius={15} padding={3} bgColor="brand.bg">
           <Heading
             fontSize={fontSize || "3xl"}
             textColor="brand.300"

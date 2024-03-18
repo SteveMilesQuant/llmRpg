@@ -31,22 +31,31 @@ const CharacterFormBody = ({
   return (
     <SimpleGrid columns={1} gap={5}>
       <FormControl>
-        <FormLabel>Name</FormLabel>
+        <FormLabel textColor="white">Name</FormLabel>
         <InputError
           label={errors.name?.message}
           isOpen={errors.name ? true : false}
         >
-          <Input {...register("name")} type="text" isReadOnly={isReadOnly} />
+          <Input
+            {...register("name")}
+            type="text"
+            isReadOnly={isReadOnly}
+            bgColor="brand.bg"
+          />
         </InputError>
       </FormControl>
       {showLocation && (
         <FormControl>
-          <FormLabel>Location</FormLabel>
+          <FormLabel textColor="white">Location</FormLabel>
           <InputError
             label={errors.location_id?.message}
             isOpen={errors.location_id ? true : false}
           >
-            <Select {...register("location_id")} disabled={isReadOnly}>
+            <Select
+              {...register("location_id")}
+              disabled={isReadOnly}
+              bgColor="brand.bg"
+            >
               <option value="">Select location</option>
               {locations?.map((location) => (
                 <option key={location.id} value={location.id}>
@@ -58,7 +67,7 @@ const CharacterFormBody = ({
         </FormControl>
       )}
       <FormControl>
-        <FormLabel>Public Description</FormLabel>
+        <FormLabel textColor="white">Public Description</FormLabel>
         <InputError
           label={errors.public_description?.message}
           isOpen={errors.public_description ? true : false}
@@ -69,11 +78,12 @@ const CharacterFormBody = ({
             size="xl"
             height="5rem"
             isReadOnly={isReadOnly}
+            bgColor="brand.bg"
           />
         </InputError>
       </FormControl>
       <FormControl>
-        <FormLabel>Private Description</FormLabel>
+        <FormLabel textColor="white">Private Description</FormLabel>
         <InputError
           label={errors.private_description?.message}
           isOpen={errors.private_description ? true : false}
@@ -84,6 +94,7 @@ const CharacterFormBody = ({
             size="xl"
             height="15rem"
             isReadOnly={isReadOnly}
+            bgColor="brand.bg"
           />
         </InputError>
       </FormControl>

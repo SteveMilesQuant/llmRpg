@@ -35,7 +35,7 @@ const Locations = ({ storyId }: Props) => {
           />
           <Button
             onClick={onOpen}
-            bgColor={undefined}
+            bgColor="brand.bg"
             color="inherit"
             _hover={undefined}
           >

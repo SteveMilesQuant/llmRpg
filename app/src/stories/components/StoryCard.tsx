@@ -1,6 +1,5 @@
 import { Divider, HStack, Heading, Text } from "@chakra-ui/react";
 import { Story } from "../Story";
-import DeleteButton from "../../components/DeleteButton";
 import CardContainer from "../../components/CardContainer";
 import { useContext } from "react";
 import PageContext, { PageContextType } from "../../pages/pageContext";
@@ -9,10 +8,9 @@ import { useNavigate } from "react-router-dom";
 
 interface Props {
   story: Story;
-  onDelete?: () => void;
 }
 
-const StoryCard = ({ story, onDelete }: Props) => {
+const StoryCard = ({ story }: Props) => {
   const pageContext = useContext(PageContext);
   const navigate = useNavigate();
   const { onStart } = useSession(() => {
@@ -39,9 +37,6 @@ const StoryCard = ({ story, onDelete }: Props) => {
             {story.title}
           </Heading>
         </HStack>
-        {pageContext === PageContextType.design && onDelete && (
-          <DeleteButton onConfirm={onDelete}>{story.title}</DeleteButton>
-        )}
       </HStack>
 
       <Divider orientation="horizontal" marginTop={2} />

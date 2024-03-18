@@ -32,7 +32,7 @@ const Stories = () => {
           rightButton={
             <Button
               size="md"
-              variant="outline"
+              bgColor="brand.bg"
               color="inherit"
               onClick={newOnOpen}
             >

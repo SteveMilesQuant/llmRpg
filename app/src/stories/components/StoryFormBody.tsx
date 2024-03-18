@@ -37,16 +37,21 @@ const StoryFormBody = ({
   return (
     <Stack spacing={5}>
       <FormControl>
-        <FormLabel>Title</FormLabel>
+        <FormLabel textColor="white">Title</FormLabel>
         <InputError
           label={errors.title?.message}
           isOpen={errors.title ? true : false}
         >
-          <Input {...register("title")} type="text" isReadOnly={isReadOnly} />
+          <Input
+            {...register("title")}
+            type="text"
+            isReadOnly={isReadOnly}
+            bgColor="brand.bg"
+          />
         </InputError>
       </FormControl>
       <FormControl>
-        <FormLabel>Blurb</FormLabel>
+        <FormLabel textColor="white">Blurb</FormLabel>
         <InputError
           label={errors.blurb?.message}
           isOpen={errors.blurb ? true : false}
@@ -57,12 +62,13 @@ const StoryFormBody = ({
             size="xl"
             height="7rem"
             isReadOnly={isReadOnly}
+            bgColor="brand.bg"
           />
         </InputError>
       </FormControl>
       {showLocation && (
         <FormControl>
-          <FormLabel>Starting location</FormLabel>
+          <FormLabel textColor="white">Starting location</FormLabel>
           <InputError
             label={errors.starting_location_id?.message}
             isOpen={errors.starting_location_id ? true : false}
@@ -71,6 +77,7 @@ const StoryFormBody = ({
               {...register("starting_location_id")}
               disabled={isReadOnly}
               value={isReadOnly ? getValues("starting_location_id") : undefined}
+              bgColor="brand.bg"
             >
               <option value="">Select location</option>
               {locations?.map((location) => (
@@ -83,7 +90,7 @@ const StoryFormBody = ({
         </FormControl>
       )}
       <FormControl>
-        <FormLabel>Setting</FormLabel>
+        <FormLabel textColor="white">Setting</FormLabel>
         <InputError
           label={errors.setting?.message}
           isOpen={errors.setting ? true : false}
@@ -94,6 +101,7 @@ const StoryFormBody = ({
             size="xl"
             height="15rem"
             isReadOnly={isReadOnly}
+            bgColor="brand.bg"
           />
         </InputError>
       </FormControl>
