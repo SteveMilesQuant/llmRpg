@@ -31,6 +31,21 @@ class UserResponse(UserData):
     id: Optional[int] = None
 
 
+class QuestData(BaseModel):
+    '''Quest data'''
+    issuer: Optional[str] = None
+    target_behavior: Optional[str] = None
+    target_count: Optional[int] = None
+    achieved_count: Optional[int] = None
+    accepted: Optional[bool] = None
+
+
+class QuestResponse(QuestData):
+    '''Quest response'''
+    id: Optional[int] = None
+    session_id: Optional[int] = None
+
+
 class SessionData(BaseModel):
     '''Session data'''
     expiration: Optional[datetime] = None
@@ -45,21 +60,7 @@ class SessionResponse(SessionData):
     current_choices: List[str] = []
     narrator_memory: Optional[str] = None
     current_narration: Optional[str] = "Enter player name:"
-
-
-class QuestData(BaseModel):
-    '''Quest data'''
-    issuer: Optional[str] = None
-    target_behavior: Optional[str] = None
-    target_count: Optional[int] = None
-    achieved_count: Optional[int] = None
-    accepted: Optional[bool] = None
-
-
-class QuestResponse(QuestData):
-    '''Quest response'''
-    id: Optional[int] = None
-    session_id: Optional[int] = None
+    quests: Optional[List[QuestResponse]] = []
 
 
 class ChoiceData(BaseModel):

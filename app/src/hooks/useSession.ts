@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { axiosInstance } from "../services/api-client";
 import { create } from "zustand";
 import { useQueryClient } from "@tanstack/react-query";
-import { CACHE_KEY_ADVENTURES } from "./useAdventure";
-import { CACHE_KEY_STORIES } from "../stories";
+import { CACHE_KEY_ADVENTURE } from "./useAdventure";
 
 interface SessionStore {
   inProgress: boolean;
@@ -62,13 +61,9 @@ const useSession = (onSuccess?: () => void) => {
     axiosInstance.delete("/stop").then(() => {
       localStorage.removeItem("sessionToken");
       axiosInstance.defaults.headers.common = {};
-      queryClient.invalidateQueries({
-        queryKey: CACHE_KEY_ADVENTURES,
-        exact: false,
-      });
-      queryClient.invalidateQueries({
-        queryKey: CACHE_KEY_STORIES,
-        exact: false,
+      queryClient.removeQueries({
+        queryKey: CACHE_KEY_ADVENTURE,
+        exact: true,
       });
       stop();
     });

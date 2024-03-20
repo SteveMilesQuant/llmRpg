@@ -10,7 +10,7 @@ from narrator import Narrator
 from story import Story
 from location import Location
 from character import Character
-from quest import QuestTracker
+from quest import QuestTracker, Quest
 
 
 class Session(SessionResponse):
@@ -42,7 +42,7 @@ class Session(SessionResponse):
         else:
             # Otherwise, update attributes from fetched object
             for key, _ in SessionResponse():
-                if key not in ['current_choices', 'locations_visited']:
+                if key not in ['current_choices', 'locations_visited', 'quests', 'current_character', 'story']:
                     setattr(self, key, getattr(self._db_obj, key))
 
         await db_session.refresh(self._db_obj, ['current_choices', 'locations_visited', 'quests', 'current_character', 'story'])
@@ -54,6 +54,9 @@ class Session(SessionResponse):
             self.current_character = Character(
                 db_obj=self._db_obj.current_character)
             await self.current_character.create(db_session)
+        self.quests = [Quest(db_obj=q) for q in self._db_obj.quests or []]
+        for quest in self.quests:
+            await quest.create(db_session)
         self.story = Story(db_obj=self._db_obj.story)
         await self.story.create(db_session)
 
@@ -66,7 +69,8 @@ class Session(SessionResponse):
             db_session.add(choice_db)
             self._db_obj.current_choices.append(choice_db)
         for key, _ in SessionResponse():
-            setattr(self._db_obj, key, getattr(self, key))
+            if key not in ['current_choices', 'locations_visited', 'quests', 'current_character', 'story']:
+                setattr(self._db_obj, key, getattr(self, key))
         self._db_obj.current_character_id = self.current_character_id
         await db_session.commit()
 
@@ -159,7 +163,7 @@ class Session(SessionResponse):
         character = self.current_character
         if db_session:
             await character.prepare_session(db_session, self.id)
-        character_response = await character.interact(openai_http_session, f'{filter(lambda q: q.watcher == character.name, tracker.quests)}', user_input)
+        character_response = await character.interact(openai_http_session, f'{filter(lambda q: q.watcher == character.name, tracker.quests)}', user_input, db_session)
         new_interaction = f'From {self.player_name} to {character.name}: """{user_input}"""\n\nFrom {character.name} to {self.player_name}: """{character_response}"""'
         await narrator.update_memory(openai_http_session, new_interaction)
 
@@ -171,6 +175,7 @@ class Session(SessionResponse):
             interactions=character._db_obj_session.recent_history,
             db_session=db_session
         )
+        self.quests = tracker.quests
 
         # Commit to database
         self.narrator_memory = narrator.memory

@@ -196,7 +196,7 @@ class Character(CharacterResponse):
             character_response=character_to_user
         )
         if db_session:
-            await db_session.add(new_interaction)
+            db_session.add(new_interaction)
             await db_session.commit()
             await db_session.refresh(self._db_obj_session, ['recent_history'])
         else:
