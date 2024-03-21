@@ -1,12 +1,13 @@
 import aiohttp
 import os
 import asyncio
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, BaseModel
 from sqlalchemy import delete, select
-from typing import Optional, Any
+from typing import Optional, Any, List
 from datamodels import SAMPLE_LOCATIONS, SAMPLE_STORY, CharacterData, CharacterResponse, SAMPLE_CHARACTERS, Object
 from db import CharacterDb, CharacterRecentHistoryDb, CharacterSessionDb
 from fastapi import HTTPException, status
+from quest import Quest
 
 CHARACTER_RECENT_HISTORY_LIMIT = 3
 
@@ -47,9 +48,85 @@ Previous conversation summary: {interaction_summary}'''
 
 IMAGE_GENERATOR_PROMPT_TEMPLATE = ''''Using a mythic fantasy art style, an image for the character described as follows. {image_desc}'''
 
+CHOICE_OFFERER_DESCRIPTION = '''You are offering interactive choices for a human player when interacting with an AI character. The interaction you receive will describe the history and interactions between the player and that characters. Your response should be a Python list of strings with choices for the human player to respond.'''
+
+CHOICE_OFFERER_PROMPT_TEMPLATE = '''The human player, {player_name}, and the character, {character_name}, have had a new interaction, which is listed last in Recent interactions. If it seems like the conversation has ended, return an empty list. Otherwise, consider the ongoing quests, recent interactions, and previous conversation summary below in generating choices for {player_name} and respond with a list of choices.
+
+Previous conversation summary:
+---------------------------------
+{memory}
+---------------------------------
+
+Recent interactions:
+---------------------------------
+{recent_interactions}
+---------------------------------
+
+Ongoing quests:
+---------------------------------
+{quests}
+---------------------------------'''
+
+
+class ChoiceOffererExample(BaseModel):
+    player_name: str
+    character_name: str
+    memory: str
+    recent_interactions: str
+    quests: List
+    expected_response: str
+
+
+CHOICE_OFFERER_EXAMPLES: List[ChoiceOffererExample] = [
+    ChoiceOffererExample(
+        player_name="Dave",
+        character_name="Penelope",
+        memory="",
+        recent_interactions="",
+        quests=[],
+        expected_response="""['''"Hello, my name is Dave."''']"""
+    ),
+    ChoiceOffererExample(
+        player_name="Dave",
+        character_name="Penelope",
+        memory="Dave and Penelope greeted each other.",
+        recent_interactions='''From Dave to Penelope: "Hello, my name is Dave."\nFrom Penelope to Dave: "Hi Dave. I'm penelope. Welcome to my neighborhood."''',
+        quests=[],
+        expected_response="""['''"I'm just passing through. Anything I can help you with?"''', '''Wait for her to continue speaking.''', '''"I'm looking for opportunities to make money."''', '''"Would you mind telling me more about your neighborhood?"''']"""
+    ),
+    ChoiceOffererExample(
+        player_name="Dave",
+        character_name="Penelope",
+        memory="Penelope asked Dave to deliver a letter to her sister.",
+        recent_interactions='''From Dave to Penelope: "Hello, my name is Dave."\nFrom Penelope to Dave: "Hi Dave. I'm penelope. Welcome to my neighborhood."\n\nFrom Dave to Penelope: "Is there anything I can help you with?"\nFrom Penelope to Dave: "Yes, actually. I would like someone to deliver a letter to my sister."''',
+        quests=[],
+        expected_response="""['''"Yes, I'd be happy to deliver that for you."''', '''"What's in it for me?"''', '''"No, I don't think I can do that for you."''']"""
+    ),
+    ChoiceOffererExample(
+        player_name="Dave",
+        character_name="Penelope",
+        memory="Dave has agreed to deliver a letter to Penelope's sister.",
+        recent_interactions='''From Dave to Penelope: "Is there anything I can help you with?"\nFrom Penelope to Dave: "Yes, actually. I would like someone to deliver a letter to my sister."\n\nFrom Dave to Penelope: "Sure, I can do that"\nFrom Penelope to Dave: "Thank you!"''',
+        quests=[Quest(id=1, issuer="Penelope", target_behavior="Deliver a letter to Penelope's sister", target_count=1,
+                      achieved_count=0, accepted=False)],
+        expected_response="[]"
+    ),
+]
+
+OFFERER_FEW_SHOT_MESSAGES = []
+for example in CHOICE_OFFERER_EXAMPLES:
+    query = CHOICE_OFFERER_PROMPT_TEMPLATE.format(**example.model_dump())
+    OFFERER_FEW_SHOT_MESSAGES.append({"role": "user", "content": query})
+    OFFERER_FEW_SHOT_MESSAGES.append(
+        {"role": "assistant", "content": f'{example.expected_response}'})
+
 
 def interaction_to_string(user_to_character: str, character_to_user: str):
     return f'''From me to you: {user_to_character}\nFrom you to me: {character_to_user}'''
+
+
+def interaction_to_string_2(player_name: str, player_to_character: str, character_name: str, character_to_user: str):
+    return f'''From {player_name} to {character_name}: {player_to_character}\nFrom {character_name} to {player_name}: {character_to_user}'''
 
 
 class Character(CharacterResponse):
@@ -215,6 +292,35 @@ class Character(CharacterResponse):
             for interaction in self._db_obj_session.recent_history:
                 print(
                     f'\t({interaction.user_input}, {interaction.character_response})')
+
+    async def offer_response_choices(self, openai_http_session: aiohttp.ClientSession, player_name: str, ongoing_quests: str):
+        recent_interactions = '\n'.join(
+            [interaction_to_string_2(player_name, i.user_input, self.name, i.character_response) for i in self._db_obj_session.recent_history])
+        query = CHOICE_OFFERER_PROMPT_TEMPLATE.format(
+            player_name=player_name,
+            character_name=self.name,
+            character_description=self.private_description,
+            memory=self._db_obj_session.summarized_memory,
+            recent_interactions=recent_interactions,
+            quests=ongoing_quests
+        )
+
+        messages = [{"role": "system", "content": CHOICE_OFFERER_DESCRIPTION}]
+        messages = messages + OFFERER_FEW_SHOT_MESSAGES
+        messages = messages + [{"role": "user", "content": query}]
+
+        response = await openai_http_session.post(
+            url=self._chat_url,
+            json={
+                "model": self._chat_model,
+                "messages": messages,
+                "temperature": 0
+            })
+        json = await response.json()
+        json_msg = json['choices'][0]['message']
+        choices_str = json_msg['content'].strip()
+        choices = eval(choices_str)
+        return choices
 
     async def generate_base_image(self, openai_http_session: aiohttp.ClientSession, db_session: Optional[Any] = None) -> str:
         if self._db_obj_session.base_image_url is None:

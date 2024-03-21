@@ -106,7 +106,15 @@ class Session(SessionResponse):
             self._db_obj.locations_visited.append(loc_visited_db)
             await db_session.commit()
 
-    async def travel(self, openai_http_session: aiohttp.ClientSession, narrator: Narrator, location: Optional[Location] = None, db_session: Optional[Any] = None):
+    async def travel(
+        self,
+        openai_http_session: aiohttp.ClientSession,
+        narrator: Narrator,
+        tracker: QuestTracker,
+        location: Optional[Location] = None,
+        character: Optional[Character] = None,
+        db_session: Optional[Any] = None
+    ):
         narrator_expo = ""
 
         # Travel to a new location
@@ -114,19 +122,14 @@ class Session(SessionResponse):
             # Entirely new adventure
             expo = await narrator.embark(openai_http_session)
             narrator_expo = narrator_expo + expo + '\n\n'
-            if db_session:
-                location = Location(
-                    db_obj=self.story._db_obj.starting_location)
-                await location.create(db_session)
-            else:
-                location = self.story._db_obj.starting_location
         else:
             # Just a new location
             expo = await narrator.travel(openai_http_session, self.current_character._db_obj.location, location)
             narrator_expo = narrator_expo + expo + '\n\n'
 
         # Describe that location and character, if it is our first time here
-        character = location._db_obj.starting_character
+        if db_session:
+            await character.prepare_session(db_session, self.id)
         if not self.locations_visited.get(location.id):
             expo = await narrator.arrive(openai_http_session, location)
             narrator_expo = narrator_expo + expo + '\n\n'
@@ -143,7 +146,8 @@ class Session(SessionResponse):
         narrator_expo = narrator_expo.strip()
         await narrator.update_memory(openai_http_session, f'Narrator: {narrator_expo}')
 
-        # TODO: offer choices
+        # Generate choices
+        self.current_choices = await character.offer_response_choices(openai_http_session, self.player_name, f'{filter(lambda q: q.issuer == character.name, tracker.quests)}')
 
         # Commit to database
         self.current_character_id = character.id
@@ -176,6 +180,9 @@ class Session(SessionResponse):
             db_session=db_session
         )
         self.quests = tracker.quests
+
+        # Generate choices
+        self.current_choices = await character.offer_response_choices(openai_http_session, self.player_name, f'{filter(lambda q: q.issuer == character.name, tracker.quests)}')
 
         # Commit to database
         self.narrator_memory = narrator.memory

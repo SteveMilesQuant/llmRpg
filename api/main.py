@@ -562,7 +562,9 @@ async def post_travel(request: Request, user_choice: ChoiceData):
                     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                         detail=f"When starting a new story, player name is required.")
                 session.player_name = user_choice.choice
-                new_location = None
+                new_location = Location(
+                    db_obj=session.story._db_obj.starting_location)
+                await new_location.create(db_session)
             else:
                 if user_choice.location_id is None:
                     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
@@ -587,7 +589,22 @@ async def post_travel(request: Request, user_choice: ChoiceData):
                 memory=session.narrator_memory or ""
             )
 
-            await session.travel(openai_http_session, narrator, new_location, db_session)
+            tracker = QuestTracker(
+                chat_url=app.config.chat_url,
+                chat_model=app.config.chat_model,
+                session_id=session.id
+            )
+            await tracker.load_quests(db_session)
+
+            new_character = Character(
+                db_obj=new_location._db_obj.starting_character)
+            await new_character.create(db_session)
+            new_character.green_room(
+                chat_url=app.config.chat_url,
+                chat_model=app.config.chat_model,
+            )
+
+            await session.travel(openai_http_session, narrator, tracker, new_location, new_character, db_session)
 
             return session
 
