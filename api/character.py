@@ -50,7 +50,7 @@ IMAGE_GENERATOR_PROMPT_TEMPLATE = ''''Using a mythic fantasy art style, an image
 
 CHOICE_OFFERER_DESCRIPTION = '''You are offering interactive choices for a human player when interacting with an AI character. The interaction you receive will describe the history and interactions between the player and that characters. Your response should be a Python list of strings with choices for the human player to respond.'''
 
-CHOICE_OFFERER_PROMPT_TEMPLATE = '''The human player, {player_name}, and the character, {character_name}, have had a new interaction, which is listed last in Recent interactions. If it seems like the conversation has ended, return an empty list. Otherwise, consider the ongoing quests, recent interactions, and previous conversation summary below in generating choices for {player_name} and respond with a list of choices.
+CHOICE_OFFERER_PROMPT_TEMPLATE = '''The human player, {player_name}, and the character, {character_name}, have had a new interaction, which is listed last in Recent interactions. If the conversation has just started, return a list of greetings in various tones. If it seems like the conversation has ended, return an empty list. Otherwise, consider the ongoing quests, recent interactions, and previous conversation summary below in generating choices for {player_name} and respond with a list of up to four choices.
 
 Previous conversation summary:
 ---------------------------------
@@ -84,7 +84,7 @@ CHOICE_OFFERER_EXAMPLES: List[ChoiceOffererExample] = [
         memory="",
         recent_interactions="",
         quests=[],
-        expected_response="""['''"Hello, my name is Dave."''']"""
+        expected_response="""['''"Hello, my name is Dave."''', '''"Who are you and what can you do for me?"''']"""
     ),
     ChoiceOffererExample(
         player_name="Dave",
@@ -314,7 +314,7 @@ class Character(CharacterResponse):
             json={
                 "model": self._chat_model,
                 "messages": messages,
-                "temperature": 0
+                "temperature": 1
             })
         json = await response.json()
         json_msg = json['choices'][0]['message']
